@@ -42,13 +42,15 @@ jobs:
 
       # Cache pipeline state (embedding cache, cursors, seen IDs, notified IDs)
       # Key is run-specific; restores from the most recent matching prefix
+      # Bump the version suffix to invalidate the embedding cache after changing
+      # how GDELT article bodies are built (removed theme codes from embeddings).
       - name: Restore pipeline state
         uses: actions/cache@v4
         with:
           path: data/
-          key: pipeline-state-${{ github.run_id }}
+          key: pipeline-state-v2-${{ github.run_id }}
           restore-keys: |
-            pipeline-state-
+            pipeline-state-v2-
 
       - name: Install dependencies
         run: pip install -r requirements.txt --quiet
