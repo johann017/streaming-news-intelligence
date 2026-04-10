@@ -56,8 +56,14 @@ def run() -> list:
             text_parts = []
             for aid in cluster.article_ids[:3]:  # use up to 3 articles
                 a = articles_by_id.get(aid)
-                if a and a.cleaned_body:
-                    text_parts.append(a.cleaned_body)
+                if a:
+                    # GDELT cleaned_body contains raw theme codes (e.g. WB_137_WATER)
+                    # that are only useful for embedding, not for summarization.
+                    if a.source == "gdelt":
+                        if a.title:
+                            text_parts.append(a.title)
+                    elif a.cleaned_body:
+                        text_parts.append(a.cleaned_body)
             text = " ".join(text_parts)
 
             summary_text = summarize(text)
