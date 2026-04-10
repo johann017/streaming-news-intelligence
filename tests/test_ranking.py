@@ -86,14 +86,24 @@ def test_source_diversity_single_source():
     from services.ranking.scorer import _source_diversity_score
     cluster = _make_cluster(article_ids=["a1", "a2"], sources=["rss", "rss"])
     score = _source_diversity_score(cluster)
-    assert score == pytest.approx(0.5)  # 1 unique / 2 articles
+    assert score == pytest.approx(1 / 3.0)  # 1 unique source out of 3 max
 
 
 def test_source_diversity_multiple_sources():
     from services.ranking.scorer import _source_diversity_score
     cluster = _make_cluster(article_ids=["a1", "a2"], sources=["rss", "reddit"])
     score = _source_diversity_score(cluster)
-    assert score == pytest.approx(1.0)  # 2 unique / 2 articles = 1.0
+    assert score == pytest.approx(2 / 3.0)  # 2 unique sources out of 3 max
+
+
+def test_source_diversity_three_sources():
+    from services.ranking.scorer import _source_diversity_score
+    cluster = _make_cluster(
+        article_ids=["a1", "a2", "a3"],
+        sources=["rss", "reddit", "gdelt"],
+    )
+    score = _source_diversity_score(cluster)
+    assert score == pytest.approx(1.0)  # 3+ sources → max score
 
 
 def test_article_count_score_one_article():

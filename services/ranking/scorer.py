@@ -22,10 +22,18 @@ logger = get_logger(__name__)
 
 
 def _source_diversity_score(cluster: Cluster) -> float:
-    """Ratio of unique sources to total articles. Ranges 0–1."""
+    """
+    Score based on absolute number of unique sources.
+    1 source → 0.33, 2 sources → 0.67, 3+ sources → 1.0.
+
+    Using a ratio (unique/total) was wrong: a singleton always scored 1.0
+    because 1 unique / 1 article = 100%. This made every fresh article
+    look equally important regardless of how many outlets covered it.
+    """
     if not cluster.article_ids:
         return 0.0
-    return min(len(set(cluster.sources)) / len(cluster.article_ids), 1.0)
+    unique_sources = len(set(cluster.sources))
+    return min(unique_sources / 3.0, 1.0)
 
 
 def _recency_score(cluster: Cluster) -> float:

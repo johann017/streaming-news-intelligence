@@ -67,9 +67,11 @@ EMBEDDING_CACHE_MAX_SIZE: int = _int("EMBEDDING_CACHE_MAX_SIZE", 10_000)
 # ---------------------------------------------------------------------------
 
 # Weights for composite score (must sum to 1.0)
-SCORE_WEIGHT_SOURCE_DIVERSITY: float = _float("SCORE_WEIGHT_SOURCE_DIVERSITY", 0.30)
-SCORE_WEIGHT_RECENCY: float = _float("SCORE_WEIGHT_RECENCY", 0.35)
-SCORE_WEIGHT_ARTICLE_COUNT: float = _float("SCORE_WEIGHT_ARTICLE_COUNT", 0.20)
+# Source diversity is now the primary signal: a story covered by 3+ outlets
+# is genuinely important. Recency still matters but shouldn't dominate.
+SCORE_WEIGHT_SOURCE_DIVERSITY: float = _float("SCORE_WEIGHT_SOURCE_DIVERSITY", 0.45)
+SCORE_WEIGHT_RECENCY: float = _float("SCORE_WEIGHT_RECENCY", 0.25)
+SCORE_WEIGHT_ARTICLE_COUNT: float = _float("SCORE_WEIGHT_ARTICLE_COUNT", 0.15)
 SCORE_WEIGHT_REDDIT: float = _float("SCORE_WEIGHT_REDDIT", 0.15)
 
 RECENCY_HALF_LIFE_HOURS: float = _float("RECENCY_HALF_LIFE_HOURS", 6.0)
