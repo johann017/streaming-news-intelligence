@@ -37,11 +37,17 @@ def _list(key: str, default: list[str]) -> list[str]:
 RSS_FEEDS: list[str] = _list(
     "RSS_FEEDS",
     [
+        # World news
         "http://feeds.bbci.co.uk/news/world/rss.xml",
         "https://feeds.reuters.com/reuters/worldNews",
         "https://feeds.reuters.com/reuters/topNews",
         "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
         "https://www.aljazeera.com/xml/rss/all.xml",
+        # US news
+        "https://rss.nytimes.com/services/xml/rss/nyt/US.xml",
+        "https://feeds.npr.org/1001/rss.xml",
+        "https://feeds.apnews.com/rss/apf-topnews",
+        "https://feeds.apnews.com/rss/apf-usnews",
     ],
 )
 
