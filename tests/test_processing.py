@@ -31,7 +31,7 @@ def tmp_data_dir(tmp_path, monkeypatch):
 def _make_raw(
     article_id: str = "abc123",
     source: str = "rss",
-    title: str = "Test headline",
+    title: str = "World leaders meet in Geneva",
     body: str = _LONG_BODY,
     hours_ago: float = 1.0,
     reddit_score: int = 0,
@@ -157,6 +157,36 @@ def test_is_english_skips_detection_for_short_body():
     # Should return True without calling detect at all
     with patch("services.processing.filters.detect", side_effect=AssertionError("should not call")):
         assert is_english(article) is True
+
+
+def test_is_relevant_passes_world_news():
+    from services.processing.filters import is_relevant
+    article = _make_raw(title="UN Security Council votes on ceasefire resolution")
+    assert is_relevant(article) is True
+
+
+def test_is_relevant_drops_blocklisted_title():
+    from services.processing.filters import is_relevant
+    assert is_relevant(_make_raw(title="Cute cats go viral on TikTok")) is False
+    assert is_relevant(_make_raw(title="NFL scores from last night")) is False
+    assert is_relevant(_make_raw(title="Horoscope for Aries today")) is False
+
+
+def test_is_relevant_drops_short_title():
+    from services.processing.filters import is_relevant
+    assert is_relevant(_make_raw(title="Breaking news")) is False  # 2 words
+
+
+def test_is_relevant_drops_gdelt_garbage_slug():
+    from services.processing.filters import is_relevant
+    article = _make_raw(source="gdelt", title="ab12cd34ef56")
+    assert is_relevant(article) is False
+
+
+def test_is_relevant_allows_gdelt_normal_title():
+    from services.processing.filters import is_relevant
+    article = _make_raw(source="gdelt", title="Earthquake strikes coastal region overnight")
+    assert is_relevant(article) is True
 
 
 # ---------------------------------------------------------------------------
