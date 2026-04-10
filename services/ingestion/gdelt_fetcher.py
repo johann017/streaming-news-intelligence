@@ -5,6 +5,7 @@ We download the latest available file and parse relevant columns.
 
 No API key required. GDELT is a free public dataset.
 """
+
 from __future__ import annotations
 
 import csv
@@ -26,11 +27,11 @@ _TIMEOUT = 30  # seconds
 
 # GDELT GKG columns we care about (0-indexed)
 # Full schema: https://blog.gdeltproject.org/gdelt-2-0-our-global-world-in-realtime/
-_COL_DATE = 0          # YYYYMMDDHHMMSS
-_COL_SOURCE_URL = 4    # article URL
-_COL_THEMES = 7        # semicolon-separated themes (e.g., "TERROR;PROTEST;ELECTION")
-_COL_LOCATIONS = 9     # semicolon-separated location info
-_COL_TITLE = -1        # not a real column; we derive from URL
+_COL_DATE = 0  # YYYYMMDDHHMMSS
+_COL_SOURCE_URL = 4  # article URL
+_COL_THEMES = 7  # semicolon-separated themes (e.g., "TERROR;PROTEST;ELECTION")
+_COL_LOCATIONS = 9  # semicolon-separated location info
+_COL_TITLE = -1  # not a real column; we derive from URL
 
 
 def _parse_gdelt_timestamp(ts_str: str) -> datetime | None:
@@ -117,13 +118,24 @@ def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
         published_at = _parse_gdelt_timestamp(ts_str) or batch_published_at
 
         themes = row[_COL_THEMES].strip() if len(row) > _COL_THEMES else ""
-        # Derive a pseudo-title from the URL (last path component)
-        path_part = url.rstrip("/").split("/")[-1]
-        title = path_part.replace("-", " ").replace("_", " ").split("?")[0][:200]
+        # Derive a pseudo-title from the URL path — prefer longer path components
+        # as they tend to contain readable slugs (e.g. "ukraine-ceasefire-talks")
+        path_parts = [
+            p for p in url.rstrip("/").split("/") if p and not p.startswith("http")
+        ]
+        # Pick the longest path segment as it's most likely the article slug
+        path_part = max(path_parts, key=len) if path_parts else ""
+        title = (
+            path_part.replace("-", " ").replace("_", " ").split("?")[0][:200].strip()
+        )
         if not title:
             title = url[:100]
 
-        body = themes.replace(";", " ") if themes else title
+        # GDELT provides no article body — combine title with space-separated
+        # theme keywords (e.g. "PROTEST UKRAINE ELECTION") so the text is long
+        # enough to pass has_sufficient_body and gives the embedder real signal.
+        theme_words = themes.replace(";", " ") if themes else ""
+        body = f"{title} {theme_words}".strip()
         article_id = compute_hash(url + ts_str)
 
         articles.append(

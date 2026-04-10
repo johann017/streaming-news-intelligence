@@ -3,6 +3,7 @@ Central configuration for the pipeline.
 All values read from environment variables with sensible defaults.
 Set overrides in .env (local) or GitHub Actions secrets.
 """
+
 from __future__ import annotations
 
 import os
@@ -31,13 +32,16 @@ def _list(key: str, default: list[str]) -> list[str]:
 # Ingestion
 # ---------------------------------------------------------------------------
 
-RSS_FEEDS: list[str] = _list("RSS_FEEDS", [
-    "http://feeds.bbci.co.uk/news/world/rss.xml",
-    "https://feeds.reuters.com/reuters/worldNews",
-    "https://feeds.reuters.com/reuters/topNews",
-    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-    "https://www.aljazeera.com/xml/rss/all.xml",
-])
+RSS_FEEDS: list[str] = _list(
+    "RSS_FEEDS",
+    [
+        "http://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://feeds.reuters.com/reuters/worldNews",
+        "https://feeds.reuters.com/reuters/topNews",
+        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+        "https://www.aljazeera.com/xml/rss/all.xml",
+    ],
+)
 
 REDDIT_SUBREDDITS: list[str] = _list("REDDIT_SUBREDDITS", ["worldnews", "news"])
 REDDIT_POST_LIMIT: int = _int("REDDIT_POST_LIMIT", 25)
@@ -58,7 +62,7 @@ SEEN_IDS_MAX_SIZE: int = _int("SEEN_IDS_MAX_SIZE", 10_000)
 # ---------------------------------------------------------------------------
 
 EMBEDDING_MODEL: str = _str("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-DBSCAN_EPS: float = _float("DBSCAN_EPS", 0.25)        # cosine distance threshold
+DBSCAN_EPS: float = _float("DBSCAN_EPS", 0.20)  # cosine distance threshold
 DBSCAN_MIN_SAMPLES: int = _int("DBSCAN_MIN_SAMPLES", 2)
 EMBEDDING_CACHE_MAX_SIZE: int = _int("EMBEDDING_CACHE_MAX_SIZE", 10_000)
 
@@ -82,9 +86,7 @@ TOP_EVENT_COUNT: int = _int("TOP_EVENT_COUNT", 10)
 # Summarization
 # ---------------------------------------------------------------------------
 
-SUMMARIZATION_MODEL: str = _str(
-    "SUMMARIZATION_MODEL", "sshleifer/distilbart-cnn-12-6"
-)
+SUMMARIZATION_MODEL: str = _str("SUMMARIZATION_MODEL", "sshleifer/distilbart-cnn-12-6")
 MIN_SCORE_FOR_SUMMARIZATION: float = _float("MIN_SCORE_FOR_SUMMARIZATION", 0.3)
 SUMMARY_MAX_LENGTH: int = _int("SUMMARY_MAX_LENGTH", 130)
 SUMMARY_MIN_LENGTH: int = _int("SUMMARY_MIN_LENGTH", 30)
