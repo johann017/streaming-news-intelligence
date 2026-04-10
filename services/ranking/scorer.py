@@ -95,8 +95,10 @@ def score_cluster(
         "reddit_engagement": _reddit_engagement_score(cluster, articles_by_id),
     }
 
-    # Penalise singleton clusters (noise from DBSCAN) with a 0.5 multiplier
-    singleton_penalty = 0.5 if cluster.is_singleton else 1.0
+    # Penalise singleton clusters (noise from DBSCAN) with a 0.8 multiplier.
+    # 0.5 was too aggressive — it suppressed real breaking news that hadn't
+    # yet been picked up by multiple sources.
+    singleton_penalty = 0.8 if cluster.is_singleton else 1.0
 
     composite = sum(w[k] * v for k, v in components.items()) * singleton_penalty
     return round(composite, 4), components
