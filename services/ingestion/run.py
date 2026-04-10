@@ -18,6 +18,7 @@ from shared.utils import get_logger
 
 from services.ingestion.rss_fetcher import fetch_all_rss
 from services.ingestion.reddit_fetcher import fetch_all_reddit
+from services.ingestion.gdelt_fetcher import fetch_gdelt
 
 logger = get_logger(__name__)
 
@@ -31,8 +32,9 @@ def run() -> list[RawArticle]:
 
     rss_articles = fetch_all_rss()
     reddit_articles = fetch_all_reddit()
+    gdelt_articles = fetch_gdelt()
 
-    all_articles = rss_articles + reddit_articles
+    all_articles = rss_articles + reddit_articles + gdelt_articles
 
     # Deduplicate within this batch (same article from multiple sources)
     seen: set[str] = set()
@@ -43,9 +45,10 @@ def run() -> list[RawArticle]:
             unique.append(article)
 
     logger.info(
-        "Ingestion complete: %d RSS + %d Reddit = %d total, %d unique",
+        "Ingestion complete: %d RSS + %d Reddit + %d GDELT = %d total, %d unique",
         len(rss_articles),
         len(reddit_articles),
+        len(gdelt_articles),
         len(all_articles),
         len(unique),
     )

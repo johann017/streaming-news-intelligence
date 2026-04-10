@@ -1,0 +1,151 @@
+"""
+GDELT v2 GKG (Global Knowledge Graph) fetcher.
+GDELT publishes a new 15-minute CSV every 15 minutes at a known URL.
+We download the latest available file and parse relevant columns.
+
+No API key required. GDELT is a free public dataset.
+"""
+from __future__ import annotations
+
+import csv
+import io
+import zipfile
+from datetime import datetime, timezone, timedelta
+
+import requests
+
+from shared.models import RawArticle
+from shared.utils import compute_hash, get_logger, utcnow
+from services.ingestion.cursor_store import get_cursor, set_cursor
+
+logger = get_logger(__name__)
+
+_GDELT_LASTUPDATE_URL = "http://data.gdeltproject.org/gdeltv2/lastupdate.txt"
+_CURSOR_KEY = "gdelt"
+_TIMEOUT = 30  # seconds
+
+# GDELT GKG columns we care about (0-indexed)
+# Full schema: https://blog.gdeltproject.org/gdelt-2-0-our-global-world-in-realtime/
+_COL_DATE = 0          # YYYYMMDDHHMMSS
+_COL_SOURCE_URL = 4    # article URL
+_COL_THEMES = 7        # semicolon-separated themes (e.g., "TERROR;PROTEST;ELECTION")
+_COL_LOCATIONS = 9     # semicolon-separated location info
+_COL_TITLE = -1        # not a real column; we derive from URL
+
+
+def _parse_gdelt_timestamp(ts_str: str) -> datetime | None:
+    """Parse GDELT timestamp format YYYYMMDDHHMMSS into a timezone-aware datetime."""
+    try:
+        dt = datetime.strptime(ts_str.strip(), "%Y%m%d%H%M%S")
+        return dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def _get_latest_csv_url() -> tuple[str, datetime] | None:
+    """
+    Fetch GDELT's lastupdate.txt to find the most recent GKG CSV URL.
+    Returns (url, published_at) or None on failure.
+    """
+    try:
+        resp = requests.get(_GDELT_LASTUPDATE_URL, timeout=_TIMEOUT)
+        resp.raise_for_status()
+        for line in resp.text.strip().splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 3 and "gkg.csv.zip" in parts[2]:
+                url = parts[2]
+                # Extract timestamp from filename: 20240601120000.gkg.csv.zip
+                filename = url.split("/")[-1]
+                ts_str = filename.split(".")[0]
+                published_at = _parse_gdelt_timestamp(ts_str)
+                return url, published_at or utcnow()
+    except Exception as exc:
+        logger.warning("Failed to fetch GDELT lastupdate.txt: %s", exc)
+    return None
+
+
+def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
+    """
+    Fetch the latest GDELT GKG batch and return new articles.
+    Only fetches if the batch is newer than the stored cursor.
+    """
+    cursor = get_cursor(_CURSOR_KEY)
+
+    result = _get_latest_csv_url()
+    if result is None:
+        return []
+
+    csv_url, batch_published_at = result
+
+    if batch_published_at <= cursor:
+        logger.info("GDELT: no new batch (latest: %s)", batch_published_at.isoformat())
+        return []
+
+    logger.info("GDELT: fetching batch from %s", batch_published_at.isoformat())
+
+    try:
+        resp = requests.get(csv_url, timeout=_TIMEOUT)
+        resp.raise_for_status()
+    except Exception as exc:
+        logger.warning("Failed to download GDELT CSV: %s", exc)
+        return []
+
+    # GDELT files are zip-compressed CSVs
+    try:
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            csv_filename = zf.namelist()[0]
+            with zf.open(csv_filename) as csv_file:
+                content = csv_file.read().decode("utf-8", errors="replace")
+    except Exception as exc:
+        logger.warning("Failed to decompress GDELT CSV: %s", exc)
+        return []
+
+    articles: list[RawArticle] = []
+    reader = csv.reader(io.StringIO(content), delimiter="\t")
+
+    for row in reader:
+        if len(row) < 10:
+            continue
+        if len(articles) >= max_articles:
+            break
+
+        url = row[_COL_SOURCE_URL].strip()
+        if not url or not url.startswith("http"):
+            continue
+
+        ts_str = row[_COL_DATE].strip()
+        published_at = _parse_gdelt_timestamp(ts_str) or batch_published_at
+
+        themes = row[_COL_THEMES].strip() if len(row) > _COL_THEMES else ""
+        # Derive a pseudo-title from the URL (last path component)
+        path_part = url.rstrip("/").split("/")[-1]
+        title = path_part.replace("-", " ").replace("_", " ").split("?")[0][:200]
+        if not title:
+            title = url[:100]
+
+        body = themes.replace(";", " ") if themes else title
+        article_id = compute_hash(url + ts_str)
+
+        articles.append(
+            RawArticle(
+                id=article_id,
+                source="gdelt",
+                url=url,
+                title=title,
+                body=body,
+                published_at=published_at,
+                fetched_at=utcnow(),
+                raw_metadata={
+                    "gdelt_themes": themes,
+                    "batch_published_at": batch_published_at.isoformat(),
+                },
+            )
+        )
+
+    if articles:
+        set_cursor(_CURSOR_KEY, batch_published_at)
+        logger.info("GDELT: parsed %d articles from batch", len(articles))
+    else:
+        logger.info("GDELT: no articles parsed from batch")
+
+    return articles

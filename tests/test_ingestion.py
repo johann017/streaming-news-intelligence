@@ -202,7 +202,8 @@ def test_ingestion_run_writes_json(tmp_data_dir):
 
     with patch("services.ingestion.run.fetch_all_rss", return_value=mock_rss):
         with patch("services.ingestion.run.fetch_all_reddit", return_value=mock_reddit):
-            result = ingestion_run.run()
+            with patch("services.ingestion.run.fetch_gdelt", return_value=[]):
+                result = ingestion_run.run()
 
     assert len(result) == 2
     out_path = tmp_data_dir / "raw_articles.json"
@@ -218,6 +219,7 @@ def test_ingestion_run_deduplicates_within_batch(tmp_data_dir):
 
     with patch("services.ingestion.run.fetch_all_rss", return_value=[shared_article]):
         with patch("services.ingestion.run.fetch_all_reddit", return_value=[shared_article]):
-            result = ingestion_run.run()
+            with patch("services.ingestion.run.fetch_gdelt", return_value=[]):
+                result = ingestion_run.run()
 
     assert len(result) == 1
