@@ -106,8 +106,8 @@ SUMMARY_MIN_LENGTH: int = _int("SUMMARY_MIN_LENGTH", 30)
 FIRESTORE_COLLECTION_EVENTS: str = _str("FIRESTORE_COLLECTION_EVENTS", "events")
 FIRESTORE_MAX_DOCUMENTS: int = _int("FIRESTORE_MAX_DOCUMENTS", 500)
 
-EVENT_TTL_HOURS: int = _int("EVENT_TTL_HOURS", 48)
-TOP_EVENT_TTL_HOURS: int = _int("TOP_EVENT_TTL_HOURS", 72)
+EVENT_TTL_HOURS: int = _int("EVENT_TTL_HOURS", 24)
+TOP_EVENT_TTL_HOURS: int = _int("TOP_EVENT_TTL_HOURS", 24)
 
 # ---------------------------------------------------------------------------
 # Notifications (ntfy.sh)
