@@ -154,10 +154,10 @@ def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
             )
         )
 
-    if articles:
-        set_cursor(_CURSOR_KEY, batch_published_at)
-        logger.info("GDELT: parsed %d articles from batch", len(articles))
-    else:
-        logger.info("GDELT: no articles parsed from batch")
+    # Always advance the cursor once a batch is successfully downloaded,
+    # so we never re-fetch the same batch on the next run even if no
+    # valid articles were found in it.
+    set_cursor(_CURSOR_KEY, batch_published_at)
+    logger.info("GDELT: parsed %d articles from batch", len(articles))
 
     return articles

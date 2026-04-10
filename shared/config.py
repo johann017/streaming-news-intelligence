@@ -10,11 +10,13 @@ import os
 
 
 def _int(key: str, default: int) -> int:
-    return int(os.getenv(key, str(default)))
+    val = os.getenv(key, "").strip()
+    return int(val) if val else default
 
 
 def _float(key: str, default: float) -> float:
-    return float(os.getenv(key, str(default)))
+    val = os.getenv(key, "").strip()
+    return float(val) if val else default
 
 
 def _str(key: str, default: str) -> str:
@@ -107,7 +109,7 @@ TOP_EVENT_TTL_HOURS: int = _int("TOP_EVENT_TTL_HOURS", 72)
 
 NTFY_TOPIC: str = _str("NTFY_TOPIC", "")
 NTFY_BASE_URL: str = _str("NTFY_BASE_URL", "https://ntfy.sh")
-NOTIFICATION_SCORE_THRESHOLD: float = _float("NOTIFICATION_SCORE_THRESHOLD", 0.7)
+NOTIFICATION_SCORE_THRESHOLD: float = _float("NOTIFICATION_SCORE_THRESHOLD", 0.45)
 NOTIFIED_IDS_MAX_SIZE: int = _int("NOTIFIED_IDS_MAX_SIZE", 1_000)
 
 # ---------------------------------------------------------------------------
