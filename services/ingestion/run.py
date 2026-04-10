@@ -12,7 +12,7 @@ import sys
 # Allow running as `python services/ingestion/run.py` from repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from shared.config import RAW_ARTICLES_PATH
+import shared.config as cfg
 from shared.models import RawArticle
 from shared.utils import get_logger
 
@@ -50,11 +50,11 @@ def run() -> list[RawArticle]:
         len(unique),
     )
 
-    os.makedirs(os.path.dirname(RAW_ARTICLES_PATH) or ".", exist_ok=True)
-    with open(RAW_ARTICLES_PATH, "w") as f:
+    os.makedirs(os.path.dirname(cfg.RAW_ARTICLES_PATH) or ".", exist_ok=True)
+    with open(cfg.RAW_ARTICLES_PATH, "w") as f:
         json.dump([a.to_dict() for a in unique], f, indent=2)
 
-    logger.info("Wrote %d articles to %s", len(unique), RAW_ARTICLES_PATH)
+    logger.info("Wrote %d articles to %s", len(unique), cfg.RAW_ARTICLES_PATH)
     return unique
 
 

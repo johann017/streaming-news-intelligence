@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from shared.config import NORMALIZED_ARTICLES_PATH, RAW_ARTICLES_PATH
+import shared.config as cfg
 from shared.models import NormalizedArticle, RawArticle
 from shared.utils import get_logger
 
@@ -29,11 +29,11 @@ def run() -> list[NormalizedArticle]:
     """
     logger.info("=== Processing started ===")
 
-    if not os.path.exists(RAW_ARTICLES_PATH):
-        logger.warning("No raw articles file found at %s — skipping", RAW_ARTICLES_PATH)
+    if not os.path.exists(cfg.RAW_ARTICLES_PATH):
+        logger.warning("No raw articles file found at %s — skipping", cfg.RAW_ARTICLES_PATH)
         return []
 
-    with open(RAW_ARTICLES_PATH) as f:
+    with open(cfg.RAW_ARTICLES_PATH) as f:
         raw_dicts = json.load(f)
 
     raw_articles = [RawArticle.from_dict(d) for d in raw_dicts]
@@ -51,15 +51,15 @@ def run() -> list[NormalizedArticle]:
     # Step 3: Normalize
     normalized = [normalize(a) for a in passed]
 
-    os.makedirs(os.path.dirname(NORMALIZED_ARTICLES_PATH) or ".", exist_ok=True)
-    with open(NORMALIZED_ARTICLES_PATH, "w") as f:
+    os.makedirs(os.path.dirname(cfg.NORMALIZED_ARTICLES_PATH) or ".", exist_ok=True)
+    with open(cfg.NORMALIZED_ARTICLES_PATH, "w") as f:
         json.dump([a.to_dict() for a in normalized], f, indent=2)
 
     logger.info(
         "Processing complete: %d raw → %d normalized, written to %s",
         len(raw_articles),
         len(normalized),
-        NORMALIZED_ARTICLES_PATH,
+        cfg.NORMALIZED_ARTICLES_PATH,
     )
     return normalized
 

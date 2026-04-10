@@ -6,24 +6,24 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from shared.config import CURSORS_PATH, INGESTION_LOOKBACK_HOURS
+import shared.config as cfg
 from shared.utils import get_logger, utcnow
 
 logger = get_logger(__name__)
 
 
 def _load() -> dict[str, str]:
-    if os.path.exists(CURSORS_PATH):
-        with open(CURSORS_PATH) as f:
+    if os.path.exists(cfg.CURSORS_PATH):
+        with open(cfg.CURSORS_PATH) as f:
             return json.load(f)
     return {}
 
 
 def _save(cursors: dict[str, str]) -> None:
-    os.makedirs(os.path.dirname(CURSORS_PATH) or ".", exist_ok=True)
-    with open(CURSORS_PATH, "w") as f:
+    os.makedirs(os.path.dirname(cfg.CURSORS_PATH) or ".", exist_ok=True)
+    with open(cfg.CURSORS_PATH, "w") as f:
         json.dump(cursors, f, indent=2)
 
 
@@ -35,11 +35,8 @@ def get_cursor(source: str) -> datetime:
     cursors = _load()
     if source in cursors:
         return datetime.fromisoformat(cursors[source])
-    fallback = utcnow().replace(
-        second=0, microsecond=0
-    )
-    from datetime import timedelta
-    return fallback - timedelta(hours=INGESTION_LOOKBACK_HOURS)
+    fallback = utcnow().replace(second=0, microsecond=0)
+    return fallback - timedelta(hours=cfg.INGESTION_LOOKBACK_HOURS)
 
 
 def set_cursor(source: str, timestamp: datetime) -> None:
