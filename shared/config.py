@@ -64,7 +64,7 @@ SEEN_IDS_MAX_SIZE: int = _int("SEEN_IDS_MAX_SIZE", 10_000)
 # ---------------------------------------------------------------------------
 
 EMBEDDING_MODEL: str = _str("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-DBSCAN_EPS: float = _float("DBSCAN_EPS", 0.20)  # cosine distance threshold
+DBSCAN_EPS: float = _float("DBSCAN_EPS", 0.30)  # cosine distance threshold
 DBSCAN_MIN_SAMPLES: int = _int("DBSCAN_MIN_SAMPLES", 2)
 EMBEDDING_CACHE_MAX_SIZE: int = _int("EMBEDDING_CACHE_MAX_SIZE", 10_000)
 
