@@ -93,15 +93,14 @@ def test_get_notifiable_filters_by_score(tmp_data_dir):
     assert notifiable[0].event_id == "e1"
 
 
-def test_get_notifiable_filters_non_top_events(tmp_data_dir):
+def test_get_notifiable_includes_non_top_events(tmp_data_dir):
     from backend.workers.notifier import get_notifiable_events
     events = [
-        _make_event("e1", score=0.9, is_top_event=False),  # not top event
-        _make_event("e2", score=0.9, is_top_event=True),
+        _make_event("e1", score=0.9, is_top_event=False),
+        _make_event("e2", score=0.8, is_top_event=True),
     ]
     notifiable = get_notifiable_events(events)
-    assert len(notifiable) == 1
-    assert notifiable[0].event_id == "e2"
+    assert len(notifiable) == 2  # both qualify — is_top_event no longer required
 
 
 def test_get_notifiable_filters_already_notified(tmp_data_dir):
@@ -197,7 +196,7 @@ def test_notifier_run_sends_qualifying_events(tmp_data_dir):
     events = [
         _make_event("e1", score=0.9, is_top_event=True),
         _make_event("e2", score=0.4, is_top_event=True),   # below threshold
-        _make_event("e3", score=0.9, is_top_event=False),  # not top event
+        _make_event("e3", score=0.9, is_top_event=False),  # non-top still qualifies now
     ]
 
     mock_resp = MagicMock()
@@ -206,7 +205,7 @@ def test_notifier_run_sends_qualifying_events(tmp_data_dir):
     with patch("backend.workers.notifier.requests.post", return_value=mock_resp):
         sent = notifier.run(events=events)
 
-    assert sent == 1  # only e1 qualifies
+    assert sent == 2  # e1 and e3 both qualify (e2 below threshold)
 
 
 def test_notifier_run_no_duplicates(tmp_data_dir):

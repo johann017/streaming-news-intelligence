@@ -111,6 +111,7 @@ NTFY_TOPIC: str = _str("NTFY_TOPIC", "")
 NTFY_BASE_URL: str = _str("NTFY_BASE_URL", "https://ntfy.sh")
 NOTIFICATION_SCORE_THRESHOLD: float = _float("NOTIFICATION_SCORE_THRESHOLD", 0.45)
 NOTIFIED_IDS_MAX_SIZE: int = _int("NOTIFIED_IDS_MAX_SIZE", 1_000)
+NOTIFIABLE_EVENTS_MAX: int = _int("NOTIFIABLE_EVENTS_MAX", 5)  # max new notifications per run
 
 # ---------------------------------------------------------------------------
 # Data paths (relative to repo root; pipeline.py sets cwd to repo root)

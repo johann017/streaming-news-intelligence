@@ -57,16 +57,17 @@ def mark_notified(event_id: str) -> None:
 def get_notifiable_events(events: list[Event]) -> list[Event]:
     """
     Filter events to those that warrant a phone notification:
-    - is_top_event must be True
     - score must exceed NOTIFICATION_SCORE_THRESHOLD
     - must not have been notified already
+    Returns events sorted by score descending, capped at NOTIFIABLE_EVENTS_MAX.
     """
-    return [
+    qualifying = [
         e for e in events
-        if e.is_top_event
-        and e.score >= cfg.NOTIFICATION_SCORE_THRESHOLD
+        if e.score >= cfg.NOTIFICATION_SCORE_THRESHOLD
         and not has_been_notified(e.event_id)
     ]
+    qualifying.sort(key=lambda e: e.score, reverse=True)
+    return qualifying[:cfg.NOTIFIABLE_EVENTS_MAX]
 
 
 def send_notification(event: Event) -> bool:
@@ -90,10 +91,9 @@ def send_notification(event: Event) -> bool:
     # Build notification content
     title = f"Breaking: {event.representative_title[:80]}"
     if event.summary:
-        # Use first sentence of summary as body
         import re
         sentences = re.split(r"(?<=[.!?])\s+", event.summary.strip())
-        body = sentences[0] if sentences else event.summary[:200]
+        body = " ".join(sentences[:2]) if len(sentences) >= 2 else sentences[0]
     else:
         body = event.representative_title
 

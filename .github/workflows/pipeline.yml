@@ -2,10 +2,10 @@ name: News Intelligence Pipeline
 
 on:
   schedule:
-    # Run every 15 minutes. GitHub reliably honors this interval.
     - cron: '*/15 * * * *'
   workflow_dispatch:
-    # Manual trigger for testing — no cron wait needed
+  repository_dispatch:
+    types: [run-pipeline]
 
 jobs:
   run-pipeline:
