@@ -1,0 +1,87 @@
+name: News Intelligence Pipeline
+
+on:
+  schedule:
+    # Run every 5 minutes. Public repo = unlimited Actions minutes (free).
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    # Manual trigger for testing — no cron wait needed
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8  # Hard limit — prevents runaway jobs consuming quota
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Cache pip packages to avoid re-downloading on every run
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Cache HuggingFace embedding model (~22MB for all-MiniLM-L6-v2)
+      # Key includes requirements hash so cache invalidates when model version changes
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-models-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-hf-models-
+
+      # Cache pipeline state (embedding cache, cursors, seen IDs, notified IDs)
+      # Key is run-specific; restores from the most recent matching prefix
+      - name: Restore pipeline state
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: pipeline-state-${{ github.run_id }}
+          restore-keys: |
+            pipeline-state-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt --quiet
+
+      - name: Run pipeline
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: python backend/workers/pipeline.py
+
+      # Upload data/ artifacts so you can inspect pipeline output without Firestore access
+      - name: Upload pipeline artifacts
+        if: always()  # Upload even if pipeline had non-critical failures
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-output-${{ github.run_id }}
+          path: |
+            data/events.json
+            data/ranked_clusters.json
+            data/pipeline_run_log.json
+          retention-days: 3
+          if-no-files-found: ignore
+
+      # Send ntfy notification if the pipeline itself fails (critical stage error)
+      - name: Notify on pipeline failure
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.NTFY_TOPIC }}" ]; then
+            curl -s \
+              -H "Title: Pipeline Failed" \
+              -H "Priority: high" \
+              -H "Tags: warning" \
+              -d "Pipeline run ${{ github.run_id }} failed. Check Actions logs." \
+              "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}"
+          fi
