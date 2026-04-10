@@ -2,8 +2,8 @@ name: News Intelligence Pipeline
 
 on:
   schedule:
-    # Run every 5 minutes. Public repo = unlimited Actions minutes (free).
-    - cron: '*/5 * * * *'
+    # Run every 15 minutes. GitHub reliably honors this interval.
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     # Manual trigger for testing — no cron wait needed
 
