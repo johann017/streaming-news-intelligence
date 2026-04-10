@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import zipfile
 from datetime import datetime, timezone, timedelta
 
@@ -128,6 +129,9 @@ def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
         title = (
             path_part.replace("-", " ").replace("_", " ").split("?")[0][:200].strip()
         )
+        # Strip leading date prefix (e.g. "2026 04 10 ") that appears when the
+        # publication date is embedded in the URL slug.
+        title = re.sub(r"^\d{4}\s+\d{1,2}\s+\d{1,2}\s+", "", title).strip()
         if not title:
             title = url[:100]
 
