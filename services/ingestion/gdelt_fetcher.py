@@ -135,11 +135,12 @@ def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
         if not title:
             title = url[:100]
 
-        # GDELT provides no article body — combine title with space-separated
-        # theme keywords (e.g. "PROTEST UKRAINE ELECTION") so the text is long
-        # enough to pass has_sufficient_body and gives the embedder real signal.
-        theme_words = themes.replace(";", " ") if themes else ""
-        body = f"{title} {theme_words}".strip()
+        # GDELT provides no article body. Use the title as the body so the
+        # article passes has_sufficient_body. Theme codes are kept only in
+        # raw_metadata — including them in the body corrupts embeddings because
+        # the sentence transformer treats codes like WB_137_WATER as noise,
+        # pulling semantically unrelated articles together.
+        body = title
         article_id = compute_hash(url + ts_str)
 
         articles.append(
