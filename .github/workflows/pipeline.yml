@@ -2,7 +2,7 @@ name: News Intelligence Pipeline
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/7 * * * *'
   workflow_dispatch:
   repository_dispatch:
     types: [run-pipeline]
