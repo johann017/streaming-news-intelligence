@@ -55,7 +55,7 @@ INGESTION_LOOKBACK_HOURS: int = _int("INGESTION_LOOKBACK_HOURS", 6)
 # Processing
 # ---------------------------------------------------------------------------
 
-MIN_BODY_WORDS: int = _int("MIN_BODY_WORDS", 30)
+MIN_BODY_WORDS: int = _int("MIN_BODY_WORDS", 5)
 MAX_ARTICLE_AGE_HOURS: int = _int("MAX_ARTICLE_AGE_HOURS", 24)
 SEEN_IDS_MAX_SIZE: int = _int("SEEN_IDS_MAX_SIZE", 10_000)
 

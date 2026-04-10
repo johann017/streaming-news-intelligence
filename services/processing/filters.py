@@ -90,8 +90,8 @@ def is_relevant(article: RawArticle) -> bool:
     """
     title = article.title.strip()
 
-    # Must have at least 3 words — single-word or slug titles are useless
-    if len(title.split()) < 3:
+    # Must have at least 2 words — single-word slug titles are useless
+    if len(title.split()) < 2:
         return False
 
     # GDELT-specific: drop pure alphanumeric slugs like "ab12cd34ef56"
