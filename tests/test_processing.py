@@ -10,7 +10,7 @@ import pytest
 
 FIXED_NOW = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
 
-# Body with 35 words — passes MIN_BODY_WORDS=30
+# Body with 35 words — passes MIN_BODY_WORDS=5
 _LONG_BODY = (
     "Scientists have discovered a new approach to renewable energy that could "
     "significantly reduce carbon emissions worldwide over the next two decades "
@@ -174,7 +174,7 @@ def test_is_relevant_drops_blocklisted_title():
 
 def test_is_relevant_drops_short_title():
     from services.processing.filters import is_relevant
-    assert is_relevant(_make_raw(title="Breaking news")) is False  # 2 words
+    assert is_relevant(_make_raw(title="Breaking")) is False  # 1 word
 
 
 def test_is_relevant_drops_gdelt_garbage_slug():
