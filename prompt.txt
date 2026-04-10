@@ -1,0 +1,191 @@
+You are a senior-level full-stack + machine learning engineer tasked with building a production-grade, real-time world events aggregation and summarization platform. This system must be designed to run continuously for at least one year with zero infrastructure cost (strictly within free tiers), while being scalable, efficient, and architecturally clean.
+
+Your goal is to design and implement a complete monorepo-based system that ingests global news data, processes it into structured events, clusters similar stories, generates summaries using machine learning models, ranks event importance, stores only essential data efficiently, and serves it via a real-time frontend with optional notifications.
+
+----------------------------------------
+CORE REQUIREMENTS
+----------------------------------------
+
+1. COST CONSTRAINTS (CRITICAL)
+- The system must remain entirely within free tiers for at least one year.
+- Avoid any always-on servers or paid APIs.
+- Minimize compute, storage, and network usage.
+- Use batching, filtering, and thresholding to avoid unnecessary ML processing.
+- Firestore storage must remain well below 1GB (target under 50MB sustained usage).
+- All expensive operations (embeddings, summarization) must only run on high-value data.
+
+2. DATA INGESTION
+- Aggregate global news from multiple free sources:
+  - RSS feeds (BBC, Reuters, etc.)
+  - GDELT
+  - Reddit (hot/trending posts)
+- Implement incremental ingestion using “since last seen” timestamps or cursors.
+- Avoid duplicate ingestion using hashing or IDs.
+- Use adaptive polling:
+  - High-frequency sources: every 2–5 minutes
+  - Lower-frequency sources: every 10–15 minutes
+- Do NOT continuously poll all sources blindly.
+
+3. PIPELINE ARCHITECTURE
+Design a modular pipeline with the following stages:
+
+- ingestion/
+- processing/
+- clustering/
+- summarization/
+- ranking/
+
+Pipeline must operate in batch windows (e.g., every 5 minutes), NOT per-event processing.
+
+Flow:
+Fetch → Deduplicate → Normalize → Batch → Embed → Cluster → Rank → Summarize → Store
+
+4. EVENT CLUSTERING
+- Use embeddings (via Hugging Face sentence transformers).
+- Cluster similar articles into unified “events.”
+- Implement cosine similarity + clustering (DBSCAN or similar).
+- Each cluster should represent one real-world event.
+
+5. SUMMARIZATION
+- Generate concise summaries per cluster:
+  - 2–3 sentence summary
+  - key bullet points
+- Use free/open models (Hugging Face or equivalent).
+- Only summarize clusters above a threshold (e.g., number of sources or score).
+- Avoid summarizing low-value or duplicate clusters.
+
+6. RANKING SYSTEM
+- Assign an importance score to each event based on:
+  - number of sources
+  - recency
+  - geographic spread
+  - social signals (Reddit engagement)
+- Only persist top-ranked events.
+
+7. STORAGE STRATEGY (CRITICAL)
+- Use Firebase Firestore as a lightweight cache, NOT a full database.
+- DO NOT store raw articles long-term.
+- Store only:
+  - event summary
+  - key points
+  - source references
+  - timestamp
+  - score
+- Implement TTL (time-to-live):
+  - events: 24–72 hours
+  - top events: up to 7 days
+- Enforce hard caps on total stored documents.
+- Deduplicate aggressively before writes.
+
+8. REAL-TIME DELIVERY
+- Frontend must update in real-time using Firestore listeners.
+- No need for WebSockets; use Firebase real-time capabilities.
+- UI should show:
+  - top global events
+  - trending topics
+  - recent updates
+
+9. NOTIFICATIONS
+- Use Firebase Cloud Messaging (free).
+- Only trigger notifications for high-impact events.
+- Avoid spam by using thresholds.
+
+10. INFRASTRUCTURE AS CODE (MANDATORY)
+- ALL infrastructure must be defined in code:
+  - firebase.json
+  - firestore.rules
+  - indexes
+  - deployment scripts
+- Use GitHub Actions for:
+  - scheduled pipeline execution (cron every ~5 minutes)
+  - CI/CD deployment
+- No manual configuration in dashboards.
+
+11. REPOSITORY STRUCTURE
+Use a monorepo with clear separation:
+
+- services/
+  - ingestion/
+  - processing/
+  - clustering/
+  - summarization/
+  - ranking/
+
+- backend/
+  - api/
+  - workers/
+
+- frontend/
+  - React or Next.js app
+
+- shared/
+  - data models
+  - utilities
+
+- infra/
+  - Firebase config
+  - GitHub Actions
+
+- tests/
+- README.md
+
+12. COMPUTE OPTIMIZATION
+- Batch all operations (5-minute windows).
+- Only compute embeddings when needed.
+- Only summarize important clusters.
+- Cache intermediate results where possible.
+- Avoid recomputation.
+
+13. DEPLOYMENT
+- Fully automated via GitHub Actions.
+- One-command deployment supported.
+- No manual steps required.
+
+14. OPTIONAL ADVANCED FEATURES (IF FEASIBLE)
+- Bias detection across sources
+- Fake news classification
+- Geographic visualization of events
+- “Developing story” tracking
+
+----------------------------------------
+DELIVERABLES
+----------------------------------------
+
+Produce:
+
+1. Full repository scaffold (folders + files)
+2. Core pipeline implementation (Python preferred)
+3. GitHub Actions workflow for scheduled ingestion
+4. Firebase configuration files (firestore rules, indexes, hosting)
+5. Example data models (Event, Cluster, Article)
+6. Sample clustering + summarization logic
+7. API endpoints (if needed)
+8. Frontend scaffold with real-time updates
+9. Documentation:
+   - architecture diagram
+   - data flow
+   - cost optimization explanation
+   - scaling considerations
+
+----------------------------------------
+CONSTRAINTS & PHILOSOPHY
+----------------------------------------
+
+- Optimize for clarity, modularity, and real-world engineering practices.
+- Avoid overengineering (no unnecessary microservices).
+- Prioritize cost-efficiency and sustainability.
+- Design as if this system will run continuously in production.
+- Make decisions explicit and justify tradeoffs.
+
+----------------------------------------
+END GOAL
+----------------------------------------
+
+Deliver a working system that simulates a real-time global intelligence platform, demonstrating strong skills in:
+- system design
+- machine learning pipelines
+- cost-aware engineering
+- infrastructure as code
+- full-stack development
+
+This project should be impressive to recruiters and reflect production-level thinking.

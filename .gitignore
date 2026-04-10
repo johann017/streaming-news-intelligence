@@ -1,0 +1,60 @@
+# Claude Code local config (not project code)
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Pipeline data (local state — never commit)
+data/raw_articles.json
+data/normalized_articles.json
+data/clusters.json
+data/ranked_clusters.json
+data/events.json
+data/cursors.json
+data/seen_ids.json
+data/notified_ids.json
+data/embedding_cache.pkl
+data/pipeline_run_log.json
+data/device_tokens.json
+
+# Firebase credentials (NEVER commit these)
+*.json.secret
+service-account*.json
+firebase-adminsdk*.json
+*-firebase-adminsdk-*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Torch / HuggingFace model cache (large, ephemeral)
+.cache/

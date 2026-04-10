@@ -1,0 +1,43 @@
+{
+  "countries": [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia",
+    "Australia", "Austria", "Azerbaijan", "Bahrain", "Bangladesh", "Belarus", "Belgium",
+    "Bolivia", "Bosnia", "Brazil", "Bulgaria", "Cambodia", "Cameroon", "Canada", "Chile",
+    "China", "Colombia", "Congo", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark",
+    "Ecuador", "Egypt", "Estonia", "Ethiopia", "Finland", "France", "Georgia", "Germany",
+    "Ghana", "Greece", "Guatemala", "Haiti", "Honduras", "Hungary", "India", "Indonesia",
+    "Iran", "Iraq", "Ireland", "Israel", "Italy", "Japan", "Jordan", "Kazakhstan", "Kenya",
+    "Kosovo", "Kuwait", "Kyrgyzstan", "Latvia", "Lebanon", "Libya", "Lithuania", "Luxembourg",
+    "Malaysia", "Mali", "Mexico", "Moldova", "Mongolia", "Montenegro", "Morocco", "Myanmar",
+    "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Nigeria", "North Korea", "Norway",
+    "Oman", "Pakistan", "Palestine", "Panama", "Paraguay", "Peru", "Philippines", "Poland",
+    "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saudi Arabia", "Senegal", "Serbia",
+    "Singapore", "Slovakia", "Slovenia", "Somalia", "South Africa", "South Korea", "South Sudan",
+    "Spain", "Sri Lanka", "Sudan", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan",
+    "Tanzania", "Thailand", "Tunisia", "Turkey", "Turkmenistan", "Uganda", "Ukraine",
+    "United Arab Emirates", "UAE", "United Kingdom", "UK", "United States", "USA", "US",
+    "Uruguay", "Uzbekistan", "Venezuela", "Vietnam", "Yemen", "Zimbabwe"
+  ],
+  "cities": [
+    "Kabul", "Tirana", "Algiers", "Buenos Aires", "Yerevan", "Sydney", "Vienna", "Baku",
+    "Dhaka", "Minsk", "Brussels", "La Paz", "Brasilia", "Sao Paulo", "Rio de Janeiro",
+    "Sofia", "Phnom Penh", "Ottawa", "Toronto", "Montreal", "Vancouver", "Santiago",
+    "Beijing", "Shanghai", "Hong Kong", "Bogota", "Kinshasa", "Zagreb", "Havana", "Prague",
+    "Copenhagen", "Cairo", "Tallinn", "Addis Ababa", "Helsinki", "Paris", "Lyon", "Marseille",
+    "Tbilisi", "Berlin", "Munich", "Hamburg", "Frankfurt", "Accra", "Athens", "Budapest",
+    "New Delhi", "Mumbai", "Kolkata", "Bangalore", "Jakarta", "Tehran", "Baghdad", "Dublin",
+    "Tel Aviv", "Jerusalem", "Rome", "Milan", "Tokyo", "Osaka", "Amman", "Nairobi", "Pristina",
+    "Kuwait City", "Riga", "Beirut", "Tripoli", "Vilnius", "Kuala Lumpur", "Bamako", "Mexico City",
+    "Chisinau", "Ulaanbaatar", "Rabat", "Casablanca", "Yangon", "Kathmandu", "Amsterdam",
+    "Auckland", "Managua", "Abuja", "Lagos", "Pyongyang", "Oslo", "Muscat", "Islamabad",
+    "Karachi", "Lahore", "Gaza", "Ramallah", "Panama City", "Asuncion", "Lima", "Manila",
+    "Warsaw", "Lisbon", "Doha", "Bucharest", "Moscow", "St Petersburg", "Riyadh", "Jeddah",
+    "Dakar", "Belgrade", "Singapore", "Bratislava", "Ljubljana", "Mogadishu", "Cape Town",
+    "Johannesburg", "Pretoria", "Seoul", "Juba", "Madrid", "Barcelona", "Colombo", "Khartoum",
+    "Stockholm", "Zurich", "Geneva", "Bern", "Damascus", "Taipei", "Dushanbe", "Dar es Salaam",
+    "Bangkok", "Tunis", "Ankara", "Istanbul", "Ashgabat", "Kampala", "Kyiv", "Kiev",
+    "Abu Dhabi", "Dubai", "London", "Manchester", "Edinburgh", "Washington", "New York",
+    "Los Angeles", "Chicago", "Houston", "San Francisco", "Montevideo", "Tashkent",
+    "Caracas", "Hanoi", "Ho Chi Minh City", "Sanaa", "Harare"
+  ]
+}
