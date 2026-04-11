@@ -25,11 +25,6 @@ def rank_clusters(
     scored: list[tuple[float, dict, Cluster]] = []
     for cluster in clusters:
         score, breakdown = score_cluster(cluster, articles_by_id)
-        reddit_engagement = sum(
-            articles_by_id[aid].reddit_score
-            for aid in cluster.article_ids
-            if aid in articles_by_id
-        )
         scored.append((score, breakdown, cluster))
 
     # Sort by score descending
@@ -41,17 +36,13 @@ def rank_clusters(
     ranked: list[RankedCluster] = []
     for rank_idx, (score, breakdown, cluster) in enumerate(top):
         is_top = rank_idx < cfg.TOP_EVENT_COUNT
-        reddit_engagement = sum(
-            articles_by_id[aid].reddit_score
-            for aid in cluster.article_ids
-            if aid in articles_by_id
-        )
         ranked.append(
             RankedCluster(
                 cluster_id=cluster.cluster_id,
                 article_ids=cluster.article_ids,
                 representative_title=cluster.representative_title,
                 representative_url=cluster.representative_url,
+                representative_id=cluster.representative_id,
                 sources=cluster.sources,
                 created_at=cluster.created_at,
                 centroid_embedding=cluster.centroid_embedding,
@@ -59,7 +50,6 @@ def rank_clusters(
                 score=score,
                 score_breakdown=breakdown,
                 is_top_event=is_top,
-                reddit_engagement=reddit_engagement,
             )
         )
 

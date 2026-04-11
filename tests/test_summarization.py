@@ -26,19 +26,20 @@ def _make_ranked_cluster(
     is_top_event: bool = False,
     title: str = "Global summit reaches climate agreement",
 ) -> "RankedCluster":
+    ids = article_ids or ["a1"]
     from shared.models import RankedCluster
     return RankedCluster(
         cluster_id=cluster_id,
-        article_ids=article_ids or ["a1"],
+        article_ids=ids,
         representative_title=title,
         representative_url="https://example.com/1",
+        representative_id=ids[0],
         sources=["rss"],
         created_at=FIXED_NOW,
         centroid_embedding=[],
         is_singleton=False,
         score=score,
         is_top_event=is_top_event,
-        reddit_engagement=0,
     )
 
 

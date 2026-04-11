@@ -38,6 +38,7 @@ def _make_normalized(article_id: str, source: str = "rss") -> "NormalizedArticle
     )
 
 
+
 # ---------------------------------------------------------------------------
 # Fixture embeddings: 3 tight clusters of 2 + 1 outlier
 # Vectors are unit-normalised 3D for clarity
@@ -162,13 +163,25 @@ def test_build_clusters_unique_sources():
     groups = [["a1", "b1"]]
     articles = {
         "a1": _make_normalized("a1", source="rss"),
-        "b1": _make_normalized("b1", source="reddit"),
+        "b1": _make_normalized("b1", source="guardian"),
     }
 
     with patch("services.clustering.cluster_builder.utcnow", return_value=FIXED_NOW):
         clusters = build_clusters(groups, _E, articles)
 
-    assert set(clusters[0].sources) == {"rss", "reddit"}
+    assert set(clusters[0].sources) == {"rss", "guardian"}
+
+
+def test_build_clusters_sets_representative_id():
+    from services.clustering.cluster_builder import build_clusters
+
+    groups = [["a1", "a2"]]
+    articles = {"a1": _make_normalized("a1"), "a2": _make_normalized("a2")}
+
+    with patch("services.clustering.cluster_builder.utcnow", return_value=FIXED_NOW):
+        clusters = build_clusters(groups, _E, articles)
+
+    assert clusters[0].representative_id in ("a1", "a2")
 
 
 # ---------------------------------------------------------------------------

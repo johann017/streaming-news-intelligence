@@ -81,6 +81,7 @@ def build_clusters(
             article_ids=group_ids,
             representative_title=rep_article.title,
             representative_url=rep_article.url,
+            representative_id=best_id,
             sources=unique_sources,
             created_at=now,
             centroid_embedding=centroid.tolist(),

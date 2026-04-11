@@ -64,8 +64,9 @@ jobs:
       - name: Run pipeline
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          GUARDIAN_API_KEY: ${{ secrets.GUARDIAN_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           NOTIFICATION_SCORE_THRESHOLD: ${{ secrets.NOTIFICATION_SCORE_THRESHOLD }}
           RECENCY_HALF_LIFE_HOURS: ${{ secrets.RECENCY_HALF_LIFE_HOURS }}
         run: python backend/workers/pipeline.py

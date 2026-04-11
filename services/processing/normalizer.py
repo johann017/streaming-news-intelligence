@@ -32,10 +32,6 @@ def normalize(article: RawArticle) -> NormalizedArticle:
     # 4. Collapse whitespace
     text = _WHITESPACE_RE.sub(" ", text).strip()
 
-    reddit_score = 0
-    if article.source == "reddit":
-        reddit_score = int(article.raw_metadata.get("reddit_score", 0))
-
     return NormalizedArticle(
         id=article.id,
         source=article.source,
@@ -45,5 +41,4 @@ def normalize(article: RawArticle) -> NormalizedArticle:
         published_at=article.published_at,
         fetched_at=article.fetched_at,
         word_count=len(text.split()),
-        reddit_score=reddit_score,
     )

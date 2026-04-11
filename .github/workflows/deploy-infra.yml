@@ -22,11 +22,11 @@ jobs:
 
       - name: Deploy Firestore rules and indexes
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/firebase-sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
           cd infra
           firebase deploy --only firestore \
             --project "$FIREBASE_PROJECT_ID" \
-            --token "$FIREBASE_TOKEN" \
             --non-interactive

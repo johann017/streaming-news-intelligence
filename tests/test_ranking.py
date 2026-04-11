@@ -26,7 +26,6 @@ def _make_cluster(
     cluster_id: str = "clu1",
     article_ids: list[str] | None = None,
     sources: list[str] | None = None,
-    created_at: datetime = RECENT,
     is_singleton: bool = False,
 ) -> "Cluster":
     from shared.models import Cluster
@@ -35,8 +34,9 @@ def _make_cluster(
         article_ids=article_ids or ["a1"],
         representative_title="Test headline",
         representative_url="https://example.com/1",
+        representative_id=(article_ids or ["a1"])[0],
         sources=sources or ["rss"],
-        created_at=created_at,
+        created_at=FIXED_NOW,
         centroid_embedding=[],
         is_singleton=is_singleton,
     )
@@ -45,7 +45,7 @@ def _make_cluster(
 def _make_article(
     article_id: str = "a1",
     source: str = "rss",
-    reddit_score: int = 0,
+    published_at: datetime = RECENT,
 ) -> "NormalizedArticle":
     from shared.models import NormalizedArticle
     return NormalizedArticle(
@@ -54,10 +54,9 @@ def _make_article(
         url=f"https://example.com/{article_id}",
         title=f"Article {article_id}",
         cleaned_body="body text",
-        published_at=RECENT,
+        published_at=published_at,
         fetched_at=FIXED_NOW,
         word_count=10,
-        reddit_score=reddit_score,
     )
 
 
@@ -65,45 +64,61 @@ def _make_article(
 # scorer tests
 # ---------------------------------------------------------------------------
 
-def test_recency_score_fresh_cluster():
+def test_recency_score_fresh_article():
     from services.ranking.scorer import _recency_score
-    cluster = _make_cluster(created_at=FIXED_NOW)
+    cluster = _make_cluster(article_ids=["a1"])
+    articles = {"a1": _make_article("a1", published_at=FIXED_NOW)}
     with patch("services.ranking.scorer.utcnow", return_value=FIXED_NOW):
-        score = _recency_score(cluster)
+        score = _recency_score(cluster, articles)
     assert score == pytest.approx(1.0, abs=0.01)
 
 
-def test_recency_score_old_cluster():
+def test_recency_score_old_article():
     from services.ranking.scorer import _recency_score
-    cluster = _make_cluster(created_at=OLD)
+    cluster = _make_cluster(article_ids=["a1"])
+    articles = {"a1": _make_article("a1", published_at=OLD)}
     with patch("services.ranking.scorer.utcnow", return_value=FIXED_NOW):
-        score = _recency_score(cluster)
+        score = _recency_score(cluster, articles)
     # 12h old with 6h half-life → exp(-12 * ln2 / 6) = exp(-2*ln2) ≈ 0.25
     assert score == pytest.approx(0.25, abs=0.02)
+
+
+def test_recency_score_uses_newest_article():
+    """When a cluster has a mix, recency is based on the newest article."""
+    from services.ranking.scorer import _recency_score
+    cluster = _make_cluster(article_ids=["a1", "a2"])
+    articles = {
+        "a1": _make_article("a1", published_at=OLD),
+        "a2": _make_article("a2", published_at=FIXED_NOW),
+    }
+    with patch("services.ranking.scorer.utcnow", return_value=FIXED_NOW):
+        score = _recency_score(cluster, articles)
+    # a2 is brand new → should score close to 1.0
+    assert score == pytest.approx(1.0, abs=0.01)
 
 
 def test_source_diversity_single_source():
     from services.ranking.scorer import _source_diversity_score
     cluster = _make_cluster(article_ids=["a1", "a2"], sources=["rss", "rss"])
     score = _source_diversity_score(cluster)
-    assert score == pytest.approx(1 / 3.0)  # 1 unique source out of 3 max
+    assert score == pytest.approx(1 / 3.0)
 
 
 def test_source_diversity_multiple_sources():
     from services.ranking.scorer import _source_diversity_score
-    cluster = _make_cluster(article_ids=["a1", "a2"], sources=["rss", "reddit"])
+    cluster = _make_cluster(article_ids=["a1", "a2"], sources=["rss", "guardian"])
     score = _source_diversity_score(cluster)
-    assert score == pytest.approx(2 / 3.0)  # 2 unique sources out of 3 max
+    assert score == pytest.approx(2 / 3.0)
 
 
 def test_source_diversity_three_sources():
     from services.ranking.scorer import _source_diversity_score
     cluster = _make_cluster(
         article_ids=["a1", "a2", "a3"],
-        sources=["rss", "reddit", "gdelt"],
+        sources=["rss", "guardian", "gdelt"],
     )
     score = _source_diversity_score(cluster)
-    assert score == pytest.approx(1.0)  # 3+ sources → max score
+    assert score == pytest.approx(1.0)
 
 
 def test_article_count_score_one_article():
@@ -118,32 +133,17 @@ def test_article_count_score_multiple():
     assert _article_count_score(cluster) > 0.0
 
 
-def test_reddit_engagement_score_zero():
-    from services.ranking.scorer import _reddit_engagement_score
-    cluster = _make_cluster(article_ids=["a1"])
-    articles = {"a1": _make_article(reddit_score=0)}
-    assert _reddit_engagement_score(cluster, articles) == 0.0
-
-
-def test_reddit_engagement_score_positive():
-    from services.ranking.scorer import _reddit_engagement_score
-    cluster = _make_cluster(article_ids=["a1"])
-    articles = {"a1": _make_article(source="reddit", reddit_score=1000)}
-    score = _reddit_engagement_score(cluster, articles)
-    assert score > 0.0
-
-
 def test_singleton_penalty_applied():
     from services.ranking.scorer import score_cluster
     cluster_single = _make_cluster(is_singleton=True)
     cluster_multi = _make_cluster(is_singleton=False)
-    articles: dict = {}
+    articles = {"a1": _make_article("a1")}
 
     with patch("services.ranking.scorer.utcnow", return_value=FIXED_NOW):
         score_s, _ = score_cluster(cluster_single, articles)
         score_m, _ = score_cluster(cluster_multi, articles)
 
-    assert score_s < score_m  # singleton is penalised
+    assert score_s < score_m
 
 
 # ---------------------------------------------------------------------------
@@ -154,13 +154,13 @@ def test_ranker_sorts_by_score():
     from services.ranking.ranker import rank_clusters
 
     # Cluster A: multi-source, recent → higher score
-    # Cluster B: single-source, old → lower score
-    cluster_a = _make_cluster("A", article_ids=["a1", "a2"], sources=["rss", "reddit"], created_at=RECENT)
-    cluster_b = _make_cluster("B", article_ids=["b1"], sources=["rss"], created_at=OLD, is_singleton=True)
+    # Cluster B: single-source, singleton → lower score
+    cluster_a = _make_cluster("A", article_ids=["a1", "a2"], sources=["rss", "guardian"])
+    cluster_b = _make_cluster("B", article_ids=["b1"], sources=["rss"], is_singleton=True)
     articles = {
-        "a1": _make_article("a1", source="rss"),
-        "a2": _make_article("a2", source="reddit", reddit_score=500),
-        "b1": _make_article("b1"),
+        "a1": _make_article("a1", source="rss", published_at=RECENT),
+        "a2": _make_article("a2", source="guardian", published_at=RECENT),
+        "b1": _make_article("b1", published_at=OLD),
     }
 
     with patch("services.ranking.scorer.utcnow", return_value=FIXED_NOW):
@@ -178,7 +178,7 @@ def test_ranker_flags_top_events(monkeypatch):
     from services.ranking.ranker import rank_clusters
 
     clusters = [
-        _make_cluster(f"c{i}", article_ids=[f"a{i}"], sources=["rss"], created_at=RECENT)
+        _make_cluster(f"c{i}", article_ids=[f"a{i}"], sources=["rss"])
         for i in range(5)
     ]
     articles = {f"a{i}": _make_article(f"a{i}") for i in range(5)}
@@ -198,7 +198,7 @@ def test_ranker_respects_top_clusters_kept(monkeypatch):
     from services.ranking.ranker import rank_clusters
 
     clusters = [
-        _make_cluster(f"c{i}", article_ids=[f"a{i}"], sources=["rss"], created_at=RECENT)
+        _make_cluster(f"c{i}", article_ids=[f"a{i}"], sources=["rss"])
         for i in range(10)
     ]
     articles = {f"a{i}": _make_article(f"a{i}") for i in range(10)}
@@ -227,7 +227,7 @@ def test_ranking_run_produces_output(tmp_data_dir, monkeypatch):
     from services.ranking import run as ranking_run
 
     clusters = [
-        _make_cluster(f"c{i}", article_ids=[f"a{i}"], sources=["rss"], created_at=RECENT)
+        _make_cluster(f"c{i}", article_ids=[f"a{i}"], sources=["rss"])
         for i in range(3)
     ]
     articles = [_make_article(f"a{i}") for i in range(3)]
@@ -244,7 +244,7 @@ def test_ranking_run_produces_output(tmp_data_dir, monkeypatch):
     out = tmp_data_dir / "ranked_clusters.json"
     assert out.exists()
     data = json.loads(out.read_text())
-    assert data[0]["score"] >= data[-1]["score"]  # sorted descending
+    assert data[0]["score"] >= data[-1]["score"]
 
 
 def test_ranking_run_handles_missing_clusters(tmp_data_dir):
