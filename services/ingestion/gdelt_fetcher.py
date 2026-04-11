@@ -35,6 +35,13 @@ _COL_THEMES = 7  # semicolon-separated themes (e.g., "TERROR;PROTEST;ELECTION")
 _COL_LOCATIONS = 9  # semicolon-separated location info
 _COL_TITLE = -1  # not a real column; we derive from URL
 
+# UUID path segments look like cbb83379-13bc-50bb-935e-0457b8a2dd3d.
+# They're meaningless as titles and must be excluded before picking the slug.
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
 
 def _parse_gdelt_timestamp(ts_str: str) -> datetime | None:
     """Parse GDELT timestamp format YYYYMMDDHHMMSS into a timezone-aware datetime."""
@@ -125,7 +132,10 @@ def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
         # urlparse cleanly separates path from query string; unquote decodes
         # percent-encoded characters (e.g. %20 → space, %27 → apostrophe).
         parsed_url = urlparse(url)
-        path_parts = [p for p in parsed_url.path.rstrip("/").split("/") if p]
+        path_parts = [
+            p for p in parsed_url.path.rstrip("/").split("/")
+            if p and not _UUID_RE.match(p)
+        ]
         path_part = max(path_parts, key=len) if path_parts else ""
         title = unquote(path_part).replace("-", " ").replace("_", " ")[:200].strip()
         # Strip leading date prefix (e.g. "2026 04 10 ") that appears when the
