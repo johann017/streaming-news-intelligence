@@ -6,7 +6,10 @@ Keeping these separate from the normalizer makes them individually testable.
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from datetime import timedelta
+
+from nltk.stem import PorterStemmer
 
 try:
     from langdetect import detect, LangDetectException
@@ -29,7 +32,8 @@ _BLOCKLIST = re.compile(
     r"recipe|cooking|baking|restaurant review|"
     r"gaming|video game|minecraft|fortnite|twitch|"
     r"meme|viral video|tiktok trend|"
-    r"horoscope|zodiac|astrology"
+    r"horoscope|zodiac|astrology|"
+    r"mugshot|mug shot|true crime"
     r")\b",
     re.IGNORECASE,
 )
@@ -41,6 +45,25 @@ _GARBAGE_TITLE = re.compile(r"^[a-z0-9]{8,}$", re.IGNORECASE)
 # Taxonomy / machine-code token pattern: all-caps words with digits and underscores,
 # e.g. TAX_FNCACT, CRISISLEX_T03_DEAD, SOC_POINTSOFINTEREST, USPEC_POLITICS_GENERAL1
 _MACHINE_CODE_TOKEN = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
+
+# PorterStemmer reduces inflected forms to a common root so we can detect when
+# multiple surface forms of the same word appear in the same text — a reliable
+# signal of SEO keyword stuffing (e.g. "murder murdered kill killed arrest arrested").
+# PorterStemmer is a pure algorithm; no NLTK corpus download is required.
+_stemmer = PorterStemmer()
+_WORD_RE = re.compile(r"\b[a-z]{4,}\b")
+
+
+def _stuffed_stem_count(text: str) -> int:
+    """
+    Count how many word stems have 2+ distinct surface forms in the text.
+    Natural prose rarely repeats a word alongside its own inflected variants;
+    keyword-stuffed slugs do this systematically.
+    """
+    stem_forms: dict[str, set[str]] = defaultdict(set)
+    for word in _WORD_RE.findall(text.lower()):
+        stem_forms[_stemmer.stem(word)].add(word)
+    return sum(1 for forms in stem_forms.values() if len(forms) >= 2)
 
 
 def is_recent(article: RawArticle) -> bool:
@@ -107,15 +130,25 @@ def is_relevant(article: RawArticle) -> bool:
 
 def is_natural_language_body(article: RawArticle) -> bool:
     """
-    Return True if the article body is prose, not machine-generated codes.
-    Rejects bodies where more than 40% of tokens are taxonomy-style labels
-    (e.g. GDELT GKG theme codes like TAX_FNCACT, CRISISLEX_T03_DEAD).
+    Return True if the article body is prose, not machine-generated codes or
+    SEO keyword dumps.
+
+    Rejects:
+    - Bodies where >40% of tokens are taxonomy-style labels
+      (e.g. GDELT GKG theme codes like TAX_FNCACT, CRISISLEX_T03_DEAD)
+    - Bodies where 3+ words appear in both base and inflected form
+      (e.g. "murder murdered kill killed arrest arrested"), which is the
+      fingerprint of tabloid/true-crime keyword-stuffed URL slugs.
     """
     tokens = article.body.split()
     if not tokens:
         return False
     machine_count = sum(1 for t in tokens if _MACHINE_CODE_TOKEN.match(t))
-    return (machine_count / len(tokens)) <= 0.4
+    if (machine_count / len(tokens)) > 0.4:
+        return False
+    if _stuffed_stem_count(article.body) >= 3:
+        return False
+    return True
 
 
 def passes_all_filters(article: RawArticle) -> bool:

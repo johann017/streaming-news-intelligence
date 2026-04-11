@@ -13,6 +13,10 @@ from shared.utils import strip_html
 # Remove bare URLs from body text
 _URL_RE = re.compile(r"https?://\S+")
 
+# Remove numeric artifact fragments: a long integer ID followed by a decimal
+# (e.g. "26012577.260125") that leak in from publisher metadata or GDELT records.
+_NUMERIC_ARTIFACT_RE = re.compile(r"\b\d{6,}\.\d{4,}\b")
+
 # Collapse runs of whitespace (including \n, \t) to a single space
 _WHITESPACE_RE = re.compile(r"\s+")
 
@@ -23,7 +27,9 @@ def normalize(article: RawArticle) -> NormalizedArticle:
     text = strip_html(article.body)
     # 2. Remove raw URLs
     text = _URL_RE.sub("", text)
-    # 3. Collapse whitespace
+    # 3. Remove numeric artifact fragments (e.g. publisher/GDELT record IDs)
+    text = _NUMERIC_ARTIFACT_RE.sub("", text)
+    # 4. Collapse whitespace
     text = _WHITESPACE_RE.sub(" ", text).strip()
 
     reddit_score = 0

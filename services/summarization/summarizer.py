@@ -6,10 +6,12 @@ fails to load or the pipeline times out.
 """
 from __future__ import annotations
 
-import re
+import nltk
 
 import shared.config as cfg
 from shared.utils import get_logger, truncate_text
+
+nltk.download("punkt_tab", quiet=True)
 
 logger = get_logger(__name__)
 
@@ -41,7 +43,7 @@ def _get_pipeline():
 
 def _extractive_summary(text: str, num_sentences: int = 2) -> str:
     """Simple extractive fallback: return the first N sentences."""
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = nltk.sent_tokenize(text.strip())
     return " ".join(sentences[:num_sentences])
 
 

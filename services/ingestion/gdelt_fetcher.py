@@ -13,6 +13,7 @@ import io
 import re
 import zipfile
 from datetime import datetime, timezone, timedelta
+from urllib.parse import urlparse, unquote
 
 import requests
 
@@ -120,18 +121,21 @@ def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
 
         themes = row[_COL_THEMES].strip() if len(row) > _COL_THEMES else ""
         # Derive a pseudo-title from the URL path — prefer longer path components
-        # as they tend to contain readable slugs (e.g. "ukraine-ceasefire-talks")
-        path_parts = [
-            p for p in url.rstrip("/").split("/") if p and not p.startswith("http")
-        ]
-        # Pick the longest path segment as it's most likely the article slug
+        # as they tend to contain readable slugs (e.g. "ukraine-ceasefire-talks").
+        # urlparse cleanly separates path from query string; unquote decodes
+        # percent-encoded characters (e.g. %20 → space, %27 → apostrophe).
+        parsed_url = urlparse(url)
+        path_parts = [p for p in parsed_url.path.rstrip("/").split("/") if p]
         path_part = max(path_parts, key=len) if path_parts else ""
-        title = (
-            path_part.replace("-", " ").replace("_", " ").split("?")[0][:200].strip()
-        )
+        title = unquote(path_part).replace("-", " ").replace("_", " ")[:200].strip()
         # Strip leading date prefix (e.g. "2026 04 10 ") that appears when the
         # publication date is embedded in the URL slug.
         title = re.sub(r"^\d{4}\s+\d{1,2}\s+\d{1,2}\s+", "", title).strip()
+        # Strip leading numeric ID prefix (e.g. "26012577." or "12345 ") that
+        # appears when a publisher embeds a record ID at the start of the URL slug.
+        title = re.sub(r"^\d+[.\s]+(?=[a-zA-Z])", "", title).strip()
+        # URL slugs are lowercase; convert to title case for readability.
+        title = title.title()
         if not title:
             title = url[:100]
 

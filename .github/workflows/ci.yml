@@ -28,6 +28,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-ci-
 
+      - name: Cache NLTK data
+        uses: actions/cache@v4
+        with:
+          path: ~/nltk_data
+          key: nltk-punkt-tab-v1
+
       - name: Install dependencies
         run: pip install -r requirements.txt --quiet
 
