@@ -49,8 +49,20 @@ def run() -> list:
     events = []
     summarized_count = 0
     extractive_count = 0
+    gdelt_skipped = 0
 
     for cluster in clusters:
+        # Skip clusters where the representative article is GDELT. This only
+        # occurs when every article in the cluster is from GDELT, because the
+        # cluster_builder already prefers non-GDELT sources as the representative.
+        # GDELT titles are URL-slug derivatives and can semantically invert the
+        # article's meaning (e.g. "Autism Ice Agents Detain…" instead of
+        # "ICE agents detain man with autism"). GDELT's role is corroboration
+        # during clustering, not as a display source.
+        rep = articles_by_id.get(cluster.representative_id)
+        if rep is None or rep.source == "gdelt":
+            gdelt_skipped += 1
+            continue
         if cluster.score >= cfg.MIN_SCORE_FOR_SUMMARIZATION:
             # Always summarize from the representative article so the generated
             # text is guaranteed to match the title. Mixing bodies from multiple
@@ -70,9 +82,10 @@ def run() -> list:
         events.append(event)
 
     logger.info(
-        "Summarization: %d abstractive, %d extractive (threshold=%.2f)",
+        "Summarization: %d abstractive, %d extractive, %d GDELT-only skipped (threshold=%.2f)",
         summarized_count,
         extractive_count,
+        gdelt_skipped,
         cfg.MIN_SCORE_FOR_SUMMARIZATION,
     )
 
