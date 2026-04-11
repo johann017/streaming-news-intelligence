@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import sys
+import textwrap
 from datetime import datetime, timezone
 
 
@@ -38,14 +39,15 @@ def get_logger(name: str) -> logging.Logger:
 
 def strip_html(html: str) -> str:
     """
-    Remove HTML tags from a string using the stdlib html.parser.
-    Faster and dependency-free compared to BeautifulSoup for simple stripping.
+    Remove HTML tags from a string and decode HTML entities.
+    Uses stdlib html.parser with convert_charrefs=True so entities like
+    &amp;, &nbsp;, &#8217; are decoded to their unicode equivalents.
     """
     from html.parser import HTMLParser
 
     class _Stripper(HTMLParser):
         def __init__(self) -> None:
-            super().__init__()
+            super().__init__(convert_charrefs=True)
             self._parts: list[str] = []
 
         def handle_data(self, data: str) -> None:
@@ -60,9 +62,5 @@ def strip_html(html: str) -> str:
 
 
 def truncate_text(text: str, max_chars: int = 512) -> str:
-    """Truncate text to max_chars, breaking at word boundary where possible."""
-    if len(text) <= max_chars:
-        return text
-    truncated = text[:max_chars]
-    last_space = truncated.rfind(" ")
-    return truncated[:last_space] if last_space > 0 else truncated
+    """Truncate text to max_chars at a word boundary."""
+    return textwrap.shorten(text, width=max_chars, placeholder="")

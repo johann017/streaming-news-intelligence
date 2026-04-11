@@ -52,6 +52,12 @@ jobs:
           restore-keys: |
             pipeline-state-v2-
 
+      - name: Cache NLTK data
+        uses: actions/cache@v4
+        with:
+          path: ~/nltk_data
+          key: nltk-punkt-tab-v1
+
       - name: Install dependencies
         run: pip install -r requirements.txt --quiet
 

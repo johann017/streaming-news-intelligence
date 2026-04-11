@@ -5,7 +5,9 @@ No secondary ML model needed — keeps dependencies light.
 """
 from __future__ import annotations
 
-import re
+import nltk
+
+nltk.download("punkt_tab", quiet=True)
 
 
 def extract_key_points(summary: str, max_points: int = 3) -> list[str]:
@@ -15,6 +17,6 @@ def extract_key_points(summary: str, max_points: int = 3) -> list[str]:
     """
     if not summary.strip():
         return []
-    sentences = re.split(r"(?<=[.!?])\s+", summary.strip())
+    sentences = nltk.sent_tokenize(summary.strip())
     points = [s.strip() for s in sentences if len(s.strip()) > 10]
     return points[:max_points]
