@@ -59,10 +59,20 @@ def build_clusters(
         vecs = np.stack([embeddings[aid] for aid in group_ids if aid in embeddings])
         centroid = vecs.mean(axis=0)
 
-        # Pick representative: article whose embedding is closest to centroid
-        best_id = group_ids[0]
+        # Pick representative: prefer non-GDELT articles, then pick the one
+        # closest to the centroid among those.
+        # GDELT titles are URL-slug derivatives ("Autism Ice Agents Detain…")
+        # and are always inferior to proper journalism headlines from RSS or
+        # Guardian. Only fall back to GDELT candidates if the whole cluster is GDELT.
+        preferred = [
+            aid for aid in group_ids
+            if aid in articles_by_id and articles_by_id[aid].source != "gdelt"
+        ]
+        candidates = preferred if preferred else [aid for aid in group_ids if aid in articles_by_id]
+
+        best_id = candidates[0] if candidates else group_ids[0]
         best_sim = -1.0
-        for aid in group_ids:
+        for aid in candidates:
             if aid not in embeddings:
                 continue
             sim = _cosine_similarity(embeddings[aid], centroid)
