@@ -51,25 +51,17 @@ def run() -> list:
     extractive_count = 0
 
     for cluster in clusters:
-        # Build text to summarize: combine representative article body
         if cluster.score >= cfg.MIN_SCORE_FOR_SUMMARIZATION:
-            text_parts = []
-            for aid in cluster.article_ids[:3]:  # use up to 3 articles
-                a = articles_by_id.get(aid)
-                if a:
-                    # GDELT cleaned_body contains raw theme codes (e.g. WB_137_WATER)
-                    # that are only useful for embedding, not for summarization.
-                    if a.source == "gdelt":
-                        if a.title:
-                            text_parts.append(a.title)
-                    elif a.cleaned_body:
-                        text_parts.append(a.cleaned_body)
-            text = " ".join(text_parts)
+            # Always summarize from the representative article so the generated
+            # text is guaranteed to match the title. Mixing bodies from multiple
+            # cluster members caused title/body mismatches when the centroid sat
+            # between unrelated articles.
+            rep = articles_by_id.get(cluster.representative_id)
+            text = (rep.cleaned_body if rep else "") or cluster.representative_title
 
             summary_text = summarize(text)
             summarized_count += 1
         else:
-            # Below threshold: use representative title as bare summary
             summary_text = cluster.representative_title
             extractive_count += 1
 

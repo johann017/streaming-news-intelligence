@@ -51,8 +51,12 @@ RSS_FEEDS: list[str] = _list(
     ],
 )
 
-REDDIT_SUBREDDITS: list[str] = _list("REDDIT_SUBREDDITS", ["worldnews", "news"])
-REDDIT_POST_LIMIT: int = _int("REDDIT_POST_LIMIT", 25)
+# The Guardian Content API — free key at https://open-platform.theguardian.com/access/
+GUARDIAN_API_KEY: str = _str("GUARDIAN_API_KEY", "")
+GUARDIAN_SECTIONS: str = _str(
+    "GUARDIAN_SECTIONS",
+    "world,us-news,politics,business,science,environment,technology",
+)
 
 # How far back to look for new articles (hours) when no cursor exists
 INGESTION_LOOKBACK_HOURS: int = _int("INGESTION_LOOKBACK_HOURS", 6)
@@ -70,7 +74,9 @@ SEEN_IDS_MAX_SIZE: int = _int("SEEN_IDS_MAX_SIZE", 10_000)
 # ---------------------------------------------------------------------------
 
 EMBEDDING_MODEL: str = _str("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-DBSCAN_EPS: float = _float("DBSCAN_EPS", 0.18)  # cosine distance threshold
+# eps=0.12 requires ≥88% cosine similarity — tight enough that only articles
+# about the same specific event cluster together, not just the same broad topic.
+DBSCAN_EPS: float = _float("DBSCAN_EPS", 0.12)
 DBSCAN_MIN_SAMPLES: int = _int("DBSCAN_MIN_SAMPLES", 2)
 EMBEDDING_CACHE_MAX_SIZE: int = _int("EMBEDDING_CACHE_MAX_SIZE", 10_000)
 
@@ -79,12 +85,13 @@ EMBEDDING_CACHE_MAX_SIZE: int = _int("EMBEDDING_CACHE_MAX_SIZE", 10_000)
 # ---------------------------------------------------------------------------
 
 # Weights for composite score (must sum to 1.0)
-# Source diversity is now the primary signal: a story covered by 3+ outlets
-# is genuinely important. Recency still matters but shouldn't dominate.
-SCORE_WEIGHT_SOURCE_DIVERSITY: float = _float("SCORE_WEIGHT_SOURCE_DIVERSITY", 0.45)
-SCORE_WEIGHT_RECENCY: float = _float("SCORE_WEIGHT_RECENCY", 0.25)
-SCORE_WEIGHT_ARTICLE_COUNT: float = _float("SCORE_WEIGHT_ARTICLE_COUNT", 0.15)
-SCORE_WEIGHT_REDDIT: float = _float("SCORE_WEIGHT_REDDIT", 0.15)
+# Source diversity is the dominant signal: a story covered independently by
+# multiple outlets is verifiably important. Article count provides diminishing-
+# returns depth. Recency is a light tiebreaker — at 7-minute polling intervals
+# most articles are already recent.
+SCORE_WEIGHT_SOURCE_DIVERSITY: float = _float("SCORE_WEIGHT_SOURCE_DIVERSITY", 0.60)
+SCORE_WEIGHT_ARTICLE_COUNT: float = _float("SCORE_WEIGHT_ARTICLE_COUNT", 0.25)
+SCORE_WEIGHT_RECENCY: float = _float("SCORE_WEIGHT_RECENCY", 0.15)
 
 RECENCY_HALF_LIFE_HOURS: float = _float("RECENCY_HALF_LIFE_HOURS", 6.0)
 TOP_CLUSTERS_KEPT: int = _int("TOP_CLUSTERS_KEPT", 50)

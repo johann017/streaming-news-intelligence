@@ -1,9 +1,8 @@
-"""Tests for the ingestion service (RSS + Reddit fetchers)."""
+"""Tests for the ingestion service (RSS + Guardian fetchers)."""
 from __future__ import annotations
 
 import json
 import os
-import tempfile
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -36,10 +35,8 @@ def test_get_cursor_no_file_returns_fallback(tmp_data_dir):
     from services.ingestion.cursor_store import get_cursor
     with patch("services.ingestion.cursor_store.utcnow", return_value=FIXED_NOW):
         cursor = get_cursor("some-source")
-    # Should be INGESTION_LOOKBACK_HOURS before now
     from shared.config import INGESTION_LOOKBACK_HOURS
     expected = FIXED_NOW - timedelta(hours=INGESTION_LOOKBACK_HOURS)
-    # Allow 1-second tolerance for replace(second=0)
     assert abs((cursor - expected).total_seconds()) < 60
 
 
@@ -61,7 +58,6 @@ def _make_feed_entry(title: str, url: str, published: datetime, summary: str = "
     entry.published = published.strftime("%a, %d %b %Y %H:%M:%S +0000")
     entry.summary = summary
     entry.content = None
-    # Make hasattr work for 'content'
     del entry.content
     return entry
 
@@ -95,7 +91,6 @@ def test_rss_fetcher_deduplicates_by_hash(tmp_data_dir):
     feed_url = "http://example.com/rss.xml"
     set_cursor(feed_url, OLD_TIME)
 
-    # Two entries with same URL+title → same hash
     entry = _make_feed_entry("Duplicate", "http://example.com/same", NEW_TIME, "body")
     mock_feed = MagicMock()
     mock_feed.entries = [entry, entry]
@@ -104,7 +99,6 @@ def test_rss_fetcher_deduplicates_by_hash(tmp_data_dir):
         with patch("services.ingestion.rss_fetcher.utcnow", return_value=FIXED_NOW):
             articles = fetch_rss(feed_url)
 
-    # fetch_rss itself doesn't dedup — that's processing; but IDs should be equal
     assert articles[0].id == articles[1].id
 
 
@@ -116,68 +110,94 @@ def test_rss_fetcher_handles_network_error(tmp_data_dir):
 
 
 # ---------------------------------------------------------------------------
-# reddit_fetcher tests
+# guardian_fetcher tests
 # ---------------------------------------------------------------------------
 
-def _mock_reddit_response(posts: list[dict]) -> MagicMock:
+def _mock_guardian_response(items: list[dict]) -> MagicMock:
     resp = MagicMock()
     resp.raise_for_status = MagicMock()
-    resp.json.return_value = {
-        "data": {
-            "children": [{"data": p} for p in posts]
-        }
-    }
+    resp.json.return_value = {"response": {"results": items}}
     return resp
 
 
-def test_reddit_fetcher_returns_new_posts(tmp_data_dir):
+def _make_guardian_item(title: str, url: str, published: datetime, body: str = "") -> dict:
+    return {
+        "webUrl": url,
+        "webPublicationDate": published.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "webTitle": title,
+        "fields": {
+            "headline": title,
+            "bodyText": body or f"Full body text for {title}.",
+        },
+        "sectionName": "World news",
+    }
+
+
+def test_guardian_fetcher_returns_new_articles(tmp_data_dir, monkeypatch):
+    import shared.config as cfg
+    monkeypatch.setattr(cfg, "GUARDIAN_API_KEY", "test-key")
+
     from services.ingestion.cursor_store import set_cursor
-    from services.ingestion.reddit_fetcher import fetch_subreddit
+    from services.ingestion.guardian_fetcher import fetch_guardian
 
-    set_cursor("reddit:worldnews", OLD_TIME)
+    set_cursor("guardian", OLD_TIME)
 
-    posts = [
-        {
-            "title": "Breaking News",
-            "url": "https://example.com/news",
-            "selftext": "Details here",
-            "created_utc": NEW_TIME.timestamp(),
-            "score": 1500,
-            "num_comments": 200,
-            "permalink": "/r/worldnews/comments/abc",
-        },
-        {
-            "title": "Old News",
-            "url": "https://example.com/old",
-            "selftext": "",
-            "created_utc": (OLD_TIME - timedelta(hours=1)).timestamp(),
-            "score": 50,
-            "num_comments": 5,
-            "permalink": "/r/worldnews/comments/def",
-        },
+    items = [
+        _make_guardian_item("New World Story", "https://theguardian.com/1", NEW_TIME),
+        _make_guardian_item("Old World Story", "https://theguardian.com/2", OLD_TIME - timedelta(hours=1)),
     ]
 
-    with patch("services.ingestion.reddit_fetcher.requests.get",
-               return_value=_mock_reddit_response(posts)):
-        with patch("services.ingestion.reddit_fetcher.utcnow", return_value=FIXED_NOW):
-            articles = fetch_subreddit("worldnews")
+    with patch("services.ingestion.guardian_fetcher.requests.get",
+               return_value=_mock_guardian_response(items)):
+        with patch("services.ingestion.guardian_fetcher.utcnow", return_value=FIXED_NOW):
+            articles = fetch_guardian()
 
     assert len(articles) == 1
-    assert articles[0].title == "Breaking News"
-    assert articles[0].source == "reddit"
-    assert articles[0].raw_metadata["reddit_score"] == 1500
+    assert articles[0].title == "New World Story"
+    assert articles[0].source == "guardian"
 
 
-def test_reddit_fetcher_handles_http_error(tmp_data_dir):
-    from services.ingestion.reddit_fetcher import fetch_subreddit
+def test_guardian_fetcher_skips_when_no_api_key(tmp_data_dir, monkeypatch):
+    import shared.config as cfg
+    monkeypatch.setattr(cfg, "GUARDIAN_API_KEY", "")
+
+    from services.ingestion.guardian_fetcher import fetch_guardian
+    articles = fetch_guardian()
+    assert articles == []
+
+
+def test_guardian_fetcher_handles_http_error(tmp_data_dir, monkeypatch):
+    import shared.config as cfg
+    monkeypatch.setattr(cfg, "GUARDIAN_API_KEY", "test-key")
+
+    from services.ingestion.guardian_fetcher import fetch_guardian
 
     mock_resp = MagicMock()
-    mock_resp.raise_for_status.side_effect = Exception("403 Forbidden")
+    mock_resp.raise_for_status.side_effect = Exception("503 Service Unavailable")
 
-    with patch("services.ingestion.reddit_fetcher.requests.get", return_value=mock_resp):
-        articles = fetch_subreddit("worldnews")
+    with patch("services.ingestion.guardian_fetcher.requests.get", return_value=mock_resp):
+        articles = fetch_guardian()
 
     assert articles == []
+
+
+def test_guardian_fetcher_advances_cursor(tmp_data_dir, monkeypatch):
+    import shared.config as cfg
+    monkeypatch.setattr(cfg, "GUARDIAN_API_KEY", "test-key")
+
+    from services.ingestion.cursor_store import get_cursor, set_cursor
+    from services.ingestion.guardian_fetcher import fetch_guardian
+
+    set_cursor("guardian", OLD_TIME)
+
+    items = [_make_guardian_item("Story", "https://theguardian.com/1", NEW_TIME)]
+
+    with patch("services.ingestion.guardian_fetcher.requests.get",
+               return_value=_mock_guardian_response(items)):
+        with patch("services.ingestion.guardian_fetcher.utcnow", return_value=FIXED_NOW):
+            fetch_guardian()
+
+    assert get_cursor("guardian") == NEW_TIME
 
 
 # ---------------------------------------------------------------------------
@@ -188,20 +208,14 @@ def test_ingestion_run_writes_json(tmp_data_dir):
     from services.ingestion import run as ingestion_run
 
     mock_rss = [
-        MagicMock(
-            id="aaa",
-            to_dict=lambda: {"id": "aaa", "title": "RSS story", "source": "rss"},
-        )
+        MagicMock(id="aaa", to_dict=lambda: {"id": "aaa", "title": "RSS story", "source": "rss"})
     ]
-    mock_reddit = [
-        MagicMock(
-            id="bbb",
-            to_dict=lambda: {"id": "bbb", "title": "Reddit story", "source": "reddit"},
-        )
+    mock_guardian = [
+        MagicMock(id="bbb", to_dict=lambda: {"id": "bbb", "title": "Guardian story", "source": "guardian"})
     ]
 
     with patch("services.ingestion.run.fetch_all_rss", return_value=mock_rss):
-        with patch("services.ingestion.run.fetch_all_reddit", return_value=mock_reddit):
+        with patch("services.ingestion.run.fetch_guardian", return_value=mock_guardian):
             with patch("services.ingestion.run.fetch_gdelt", return_value=[]):
                 result = ingestion_run.run()
 
@@ -218,7 +232,7 @@ def test_ingestion_run_deduplicates_within_batch(tmp_data_dir):
     shared_article = MagicMock(id="same", to_dict=lambda: {"id": "same", "title": "dup"})
 
     with patch("services.ingestion.run.fetch_all_rss", return_value=[shared_article]):
-        with patch("services.ingestion.run.fetch_all_reddit", return_value=[shared_article]):
+        with patch("services.ingestion.run.fetch_guardian", return_value=[shared_article]):
             with patch("services.ingestion.run.fetch_gdelt", return_value=[]):
                 result = ingestion_run.run()
 

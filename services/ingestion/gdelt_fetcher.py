@@ -12,7 +12,7 @@ import csv
 import io
 import re
 import zipfile
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from urllib.parse import urlparse, unquote
 
 import requests

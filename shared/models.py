@@ -59,7 +59,6 @@ class NormalizedArticle:
     published_at: datetime
     fetched_at: datetime
     word_count: int = 0
-    reddit_score: int = 0            # upvotes if source == "reddit", else 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -71,7 +70,6 @@ class NormalizedArticle:
             "published_at": self.published_at.isoformat(),
             "fetched_at": self.fetched_at.isoformat(),
             "word_count": self.word_count,
-            "reddit_score": self.reddit_score,
         }
 
     @classmethod
@@ -85,7 +83,6 @@ class NormalizedArticle:
             published_at=datetime.fromisoformat(d["published_at"]),
             fetched_at=datetime.fromisoformat(d["fetched_at"]),
             word_count=d.get("word_count", 0),
-            reddit_score=d.get("reddit_score", 0),
         )
 
 
@@ -100,6 +97,7 @@ class Cluster:
     created_at: datetime
     centroid_embedding: list[float] = field(default_factory=list)
     is_singleton: bool = False              # True if DBSCAN labeled as noise
+    representative_id: str = ""             # article ID of the representative article
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -107,6 +105,7 @@ class Cluster:
             "article_ids": self.article_ids,
             "representative_title": self.representative_title,
             "representative_url": self.representative_url,
+            "representative_id": self.representative_id,
             "sources": self.sources,
             "created_at": self.created_at.isoformat(),
             "centroid_embedding": self.centroid_embedding,
@@ -124,6 +123,7 @@ class Cluster:
             created_at=datetime.fromisoformat(d["created_at"]),
             centroid_embedding=d.get("centroid_embedding", []),
             is_singleton=d.get("is_singleton", False),
+            representative_id=d.get("representative_id", ""),
         )
 
 
@@ -133,7 +133,6 @@ class RankedCluster(Cluster):
     score: float = 0.0
     score_breakdown: dict[str, float] = field(default_factory=dict)
     is_top_event: bool = False
-    reddit_engagement: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
@@ -141,7 +140,6 @@ class RankedCluster(Cluster):
             "score": self.score,
             "score_breakdown": self.score_breakdown,
             "is_top_event": self.is_top_event,
-            "reddit_engagement": self.reddit_engagement,
         })
         return d
 
@@ -157,10 +155,10 @@ class RankedCluster(Cluster):
             created_at=base.created_at,
             centroid_embedding=base.centroid_embedding,
             is_singleton=base.is_singleton,
+            representative_id=base.representative_id,
             score=d.get("score", 0.0),
             score_breakdown=d.get("score_breakdown", {}),
             is_top_event=d.get("is_top_event", False),
-            reddit_engagement=d.get("reddit_engagement", 0),
         )
 
 

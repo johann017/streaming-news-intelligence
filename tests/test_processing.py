@@ -34,7 +34,6 @@ def _make_raw(
     title: str = "World leaders meet in Geneva",
     body: str = _LONG_BODY,
     hours_ago: float = 1.0,
-    reddit_score: int = 0,
 ) -> "RawArticle":
     from shared.models import RawArticle
     published = FIXED_NOW - timedelta(hours=hours_ago)
@@ -46,7 +45,7 @@ def _make_raw(
         body=body,
         published_at=published,
         fetched_at=FIXED_NOW,
-        raw_metadata={"reddit_score": reddit_score} if source == "reddit" else {},
+        raw_metadata={},
     )
 
 
@@ -82,14 +81,11 @@ def test_deduplicator_idempotent_starting_from_empty(tmp_data_dir):
     from services.processing.deduplicator import deduplicate
     articles = [_make_raw("id1"), _make_raw("id2"), _make_raw("id3")]
 
-    # First run from empty state
     r1 = deduplicate(articles)
 
-    # Reset seen IDs (simulate fresh start)
     seen_path = tmp_data_dir / "seen_ids.json"
     seen_path.unlink(missing_ok=True)
 
-    # Second run from empty state — should return same articles
     r2 = deduplicate(articles)
     assert [a.id for a in r1] == [a.id for a in r2]
 
@@ -101,9 +97,7 @@ def test_deduplicator_fifo_eviction(tmp_data_dir, monkeypatch):
 
     from services.processing.deduplicator import deduplicate
     deduplicate([_make_raw("id1"), _make_raw("id2"), _make_raw("id3")])
-    # Adding id4 should evict id1 (FIFO via deque maxlen)
     deduplicate([_make_raw("id4")])
-    # id1 should now be re-ingestible
     result = deduplicate([_make_raw("id1")])
     assert len(result) == 1
 
@@ -154,7 +148,6 @@ def test_is_english_drops_non_english():
 def test_is_english_skips_detection_for_short_body():
     from services.processing.filters import is_english
     article = _make_raw(body="Short body.")
-    # Should return True without calling detect at all
     with patch("services.processing.filters.detect", side_effect=AssertionError("should not call")):
         assert is_english(article) is True
 
@@ -174,7 +167,7 @@ def test_is_relevant_drops_blocklisted_title():
 
 def test_is_relevant_drops_short_title():
     from services.processing.filters import is_relevant
-    assert is_relevant(_make_raw(title="Breaking")) is False  # 1 word
+    assert is_relevant(_make_raw(title="Breaking")) is False
 
 
 def test_is_relevant_drops_gdelt_garbage_slug():
@@ -214,13 +207,6 @@ def test_normalizer_collapses_whitespace():
     article = _make_raw(body="Word1   \n\n  Word2\t\tWord3")
     result = normalize(article)
     assert "  " not in result.cleaned_body
-
-
-def test_normalizer_extracts_reddit_score():
-    from services.processing.normalizer import normalize
-    article = _make_raw(source="reddit", reddit_score=2500)
-    result = normalize(article)
-    assert result.reddit_score == 2500
 
 
 def test_normalizer_preserves_ids():
