@@ -101,7 +101,7 @@ TOP_EVENT_COUNT: int = _int("TOP_EVENT_COUNT", 10)
 # Summarization
 # ---------------------------------------------------------------------------
 
-SUMMARIZATION_MODEL: str = _str("SUMMARIZATION_MODEL", "sshleifer/distilbart-cnn-12-6")
+SUMMARIZATION_MODEL: str = _str("SUMMARIZATION_MODEL", "facebook/bart-large-cnn")
 MIN_SCORE_FOR_SUMMARIZATION: float = _float("MIN_SCORE_FOR_SUMMARIZATION", 0.3)
 SUMMARY_MAX_LENGTH: int = _int("SUMMARY_MAX_LENGTH", 130)
 SUMMARY_MIN_LENGTH: int = _int("SUMMARY_MIN_LENGTH", 30)
