@@ -45,19 +45,18 @@ def _make_event(
     )
 
 
-def _make_mock_db(existing_doc_ids: list[str] | None = None):
+def _make_mock_db(doc_count: int = 0):
     """Create a mock Firestore db object."""
     db = MagicMock()
-
-    # Mock collection().select().stream() to return existing doc IDs
-    existing_ids = existing_doc_ids or []
-    mock_docs = [MagicMock(id=doc_id) for doc_id in existing_ids]
-
     col = MagicMock()
-    col.select.return_value.stream.return_value = iter(mock_docs)
+
+    # Mock COUNT aggregation used by enforce_document_cap
+    count_val = MagicMock()
+    count_val.value = doc_count
+    col.count.return_value.get.return_value = [[count_val]]
+
     col.where.return_value.stream.return_value = iter([])
     col.order_by.return_value.limit.return_value.stream.return_value = iter([])
-    col.select.return_value.stream.return_value = iter(mock_docs)
     col.document.return_value = MagicMock()
 
     db.collection.return_value = col
@@ -74,7 +73,7 @@ def test_upsert_events_writes_new_events():
     from backend.workers import firestore_writer
 
     events = [_make_event("e1"), _make_event("e2")]
-    mock_db = _make_mock_db(existing_doc_ids=[])
+    mock_db = _make_mock_db()
 
     with patch("backend.workers.firestore_writer._get_db", return_value=mock_db):
         written = firestore_writer.upsert_events(events)
@@ -83,17 +82,17 @@ def test_upsert_events_writes_new_events():
     assert mock_db.batch.return_value.set.call_count == 2
 
 
-def test_upsert_events_skips_existing():
+def test_upsert_events_idempotent():
+    """upsert uses set(merge=True) — writes all events regardless of prior existence."""
     from backend.workers import firestore_writer
 
     events = [_make_event("e1"), _make_event("e2")]
-    # e1 already exists
-    mock_db = _make_mock_db(existing_doc_ids=["e1"])
+    mock_db = _make_mock_db()
 
     with patch("backend.workers.firestore_writer._get_db", return_value=mock_db):
         written = firestore_writer.upsert_events(events)
 
-    assert written == 1  # only e2 written
+    assert written == 2  # both written; merge=True handles existing docs with 0 extra reads
 
 
 def test_upsert_events_empty_list():
@@ -109,7 +108,7 @@ def test_upsert_events_document_structure():
     from backend.workers import firestore_writer
 
     event = _make_event("e1", score=0.75, is_top_event=True)
-    mock_db = _make_mock_db(existing_doc_ids=[])
+    mock_db = _make_mock_db()
 
     with patch("backend.workers.firestore_writer._get_db", return_value=mock_db):
         firestore_writer.upsert_events([event])
@@ -161,13 +160,9 @@ def test_delete_expired_events_none_expired():
 
 def test_enforce_cap_deletes_lowest_scored_when_over():
     from backend.workers import firestore_writer
-    import shared.config as cfg
 
-    mock_db = _make_mock_db()
     # 7 docs in collection, cap is 5 → should delete 2
-    mock_db.collection.return_value.select.return_value.stream.return_value = iter(
-        [MagicMock() for _ in range(7)]
-    )
+    mock_db = _make_mock_db(doc_count=7)
     low_score_docs = [MagicMock(), MagicMock()]
     mock_db.collection.return_value.order_by.return_value.limit.return_value.stream.return_value = iter(
         low_score_docs
@@ -182,11 +177,8 @@ def test_enforce_cap_deletes_lowest_scored_when_over():
 def test_enforce_cap_no_op_when_under():
     from backend.workers import firestore_writer
 
-    mock_db = _make_mock_db()
     # 3 docs, cap is 5 → no deletion
-    mock_db.collection.return_value.select.return_value.stream.return_value = iter(
-        [MagicMock() for _ in range(3)]
-    )
+    mock_db = _make_mock_db(doc_count=3)
 
     with patch("backend.workers.firestore_writer._get_db", return_value=mock_db):
         count = firestore_writer.enforce_document_cap()
@@ -205,11 +197,11 @@ def test_write_events_from_file(tmp_data_dir):
     events_path = tmp_data_dir / "events.json"
     events_path.write_text(json.dumps([e.to_dict() for e in events]))
 
-    mock_db = _make_mock_db(existing_doc_ids=[])
+    # doc_count=2 keeps us under the cap of 5 — no deletions needed
+    mock_db = _make_mock_db(doc_count=2)
 
     with patch("backend.workers.firestore_writer._get_db", return_value=mock_db):
-        with patch("backend.workers.firestore_writer.utcnow", return_value=FIXED_NOW):
-            written = firestore_writer.write_events_from_file(str(events_path))
+        written = firestore_writer.write_events_from_file(str(events_path))
 
     assert written == 2
 

@@ -1,11 +1,18 @@
 """
-Firestore writer: upserts Events, enforces document caps, and cleans up expired events.
+Firestore writer: upserts Events and enforces a document cap.
 Uses Firebase Admin SDK (bypasses Firestore security rules).
+
+Read budget per pipeline run (target: near zero):
+  - upsert_events: 0 reads (set/merge is a pure write)
+  - enforce_document_cap: 1 read (COUNT aggregation)
+  - delete_expired_events: not called from the pipeline;
+    Firestore TTL handles routine expiry server-side at no read cost.
 """
 from __future__ import annotations
 
 import json
 import os
+from datetime import timezone
 
 import shared.config as cfg
 from shared.models import Event
@@ -19,48 +26,33 @@ def _get_db():
     return get_firestore_client()
 
 
-def get_existing_event_ids() -> set[str]:
-    """Return the set of event_ids currently in Firestore."""
-    db = _get_db()
-    col = db.collection(cfg.FIRESTORE_COLLECTION_EVENTS)
-    docs = col.select(["event_id"]).stream()
-    return {doc.id for doc in docs}
-
-
 def upsert_events(events: list[Event]) -> int:
     """
     Write events to Firestore using set(merge=True).
-    Skips events whose IDs are already in Firestore (no-op upsert).
+    Idempotent: re-writing an existing event_id just overwrites with fresh data.
     Returns the number of documents written.
+
+    No pre-fetch of existing IDs — set(merge=True) is an upsert by nature,
+    so checking first would only cost N reads for no benefit.
     """
     if not events:
         return 0
 
     db = _get_db()
-    existing_ids = get_existing_event_ids()
-
-    new_events = [e for e in events if e.event_id not in existing_ids]
-    if not new_events:
-        logger.info("Firestore: all %d events already exist — no writes needed", len(events))
-        return 0
-
     col = db.collection(cfg.FIRESTORE_COLLECTION_EVENTS)
     batch = db.batch()
     write_count = 0
 
-    for event in new_events:
+    for event in events:
         doc_ref = col.document(event.event_id)
         doc_data = event.to_dict()
 
-        # Convert expires_at to a Firestore Timestamp for TTL to work
-        from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-        from datetime import timezone
+        # Convert expires_at / created_at to native datetimes so Firestore TTL works
         expires_dt = event.expires_at
         if expires_dt.tzinfo is None:
             expires_dt = expires_dt.replace(tzinfo=timezone.utc)
         doc_data["expires_at"] = expires_dt
 
-        # Same for created_at
         created_dt = event.created_at
         if created_dt.tzinfo is None:
             created_dt = created_dt.replace(tzinfo=timezone.utc)
@@ -77,19 +69,54 @@ def upsert_events(events: list[Event]) -> int:
     if write_count % 400 != 0:
         batch.commit()
 
-    logger.info("Firestore: wrote %d new events", write_count)
+    logger.info("Firestore: wrote %d events", write_count)
     return write_count
+
+
+def enforce_document_cap() -> int:
+    """
+    If the events collection exceeds FIRESTORE_MAX_DOCUMENTS, delete the
+    lowest-scoring events until we're back under the cap.
+    Uses COUNT aggregation (1 read) instead of streaming all documents.
+    Returns the number of documents deleted.
+    """
+    db = _get_db()
+    col = db.collection(cfg.FIRESTORE_COLLECTION_EVENTS)
+
+    # COUNT aggregation costs exactly 1 read regardless of collection size
+    count_result = col.count().get()
+    total = count_result[0][0].value
+
+    if total <= cfg.FIRESTORE_MAX_DOCUMENTS:
+        return 0
+
+    excess = total - cfg.FIRESTORE_MAX_DOCUMENTS
+    to_delete = col.order_by("score").limit(excess).stream()
+    batch = db.batch()
+    delete_count = 0
+
+    for doc in to_delete:
+        batch.delete(doc.reference)
+        delete_count += 1
+
+    if delete_count > 0:
+        batch.commit()
+
+    logger.info(
+        "Firestore cap enforced: deleted %d lowest-scoring events (cap=%d)",
+        delete_count,
+        cfg.FIRESTORE_MAX_DOCUMENTS,
+    )
+    return delete_count
 
 
 def delete_expired_events() -> int:
     """
-    Delete documents whose expires_at is in the past.
+    Manually delete documents whose expires_at is in the past.
+    NOT called from the pipeline — Firestore TTL handles routine expiry
+    server-side at no read cost. Only call this via cleanup.py for emergency use.
     Returns the number of documents deleted.
-
-    Note: Firestore TTL policies handle this server-side automatically,
-    but this function provides manual cleanup when needed.
     """
-    from datetime import timezone
     db = _get_db()
     now = utcnow()
     col = db.collection(cfg.FIRESTORE_COLLECTION_EVENTS)
@@ -112,40 +139,6 @@ def delete_expired_events() -> int:
     return delete_count
 
 
-def enforce_document_cap() -> int:
-    """
-    If the events collection exceeds FIRESTORE_MAX_DOCUMENTS, delete the
-    lowest-scoring events until we're back under the cap.
-    Returns the number of documents deleted.
-    """
-    db = _get_db()
-    col = db.collection(cfg.FIRESTORE_COLLECTION_EVENTS)
-
-    total = len(list(col.select([]).stream()))
-    if total <= cfg.FIRESTORE_MAX_DOCUMENTS:
-        return 0
-
-    excess = total - cfg.FIRESTORE_MAX_DOCUMENTS
-    # Get the lowest-scored events
-    to_delete = col.order_by("score").limit(excess).stream()
-    batch = db.batch()
-    delete_count = 0
-
-    for doc in to_delete:
-        batch.delete(doc.reference)
-        delete_count += 1
-
-    if delete_count > 0:
-        batch.commit()
-
-    logger.info(
-        "Firestore cap enforced: deleted %d lowest-scoring events (cap=%d)",
-        delete_count,
-        cfg.FIRESTORE_MAX_DOCUMENTS,
-    )
-    return delete_count
-
-
 def write_events_from_file(events_path: str | None = None) -> int:
     """
     Read events.json and write to Firestore.
@@ -161,6 +154,5 @@ def write_events_from_file(events_path: str | None = None) -> int:
     events = [Event.from_dict(d) for d in event_dicts]
 
     written = upsert_events(events)
-    delete_expired_events()
     enforce_document_cap()
     return written
