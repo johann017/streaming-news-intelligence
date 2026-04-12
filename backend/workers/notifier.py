@@ -57,17 +57,21 @@ def mark_notified(event_id: str) -> None:
 def get_notifiable_events(events: list[Event]) -> list[Event]:
     """
     Filter events to those that warrant a phone notification:
-    - score must exceed NOTIFICATION_SCORE_THRESHOLD
-    - must not have been notified already
-    Returns events sorted by score descending, capped at NOTIFIABLE_EVENTS_MAX.
+    - must be flagged as a top event (is_top_event=True)
+    - must not have been notified already in a previous run
+    Returns events sorted by score descending.
+
+    Using is_top_event rather than a raw score threshold ensures that every
+    event the pipeline designates as important gets a notification, not just
+    those that happen to clear an arbitrary score cutoff.
     """
     qualifying = [
         e for e in events
-        if e.score >= cfg.NOTIFICATION_SCORE_THRESHOLD
+        if e.is_top_event
         and not has_been_notified(e.event_id)
     ]
     qualifying.sort(key=lambda e: e.score, reverse=True)
-    return qualifying[:cfg.NOTIFIABLE_EVENTS_MAX]
+    return qualifying
 
 
 def send_notification(event: Event) -> bool:

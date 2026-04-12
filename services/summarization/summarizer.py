@@ -1,8 +1,8 @@
 """
 Article summarizer using HuggingFace transformers.
-Primary model: sshleifer/distilbart-cnn-12-6 (~490MB, ~20s load time on CPU).
+Primary model: facebook/bart-large-cnn (~1.6GB, cached across pipeline runs).
 Falls back to extractive summarization (first 2 sentences) if the model
-fails to load or the pipeline times out.
+fails to load or inference times out.
 """
 from __future__ import annotations
 
