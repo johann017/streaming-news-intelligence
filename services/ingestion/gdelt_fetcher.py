@@ -111,6 +111,8 @@ def fetch_gdelt(max_articles: int = 50) -> list[RawArticle]:
         return []
 
     articles: list[RawArticle] = []
+    # GDELT theme/location columns can exceed the default 128 KB field limit.
+    csv.field_size_limit(10 * 1024 * 1024)
     reader = csv.reader(io.StringIO(content), delimiter="\t")
 
     for row in reader:
